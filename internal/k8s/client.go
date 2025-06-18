@@ -1,31 +1,35 @@
 package k8s
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
-	"fmt"
-	"k8s.io/client-go/kubernetes"
+
+	"k8s.io/client-go/kubernetes" // Fornece a interface kubernetes.Interface
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	metricsclientset "k8s.io/metrics/pkg/client/clientset/versioned"
+	"k8s.io/metrics/pkg/client/clientset/versioned" // Fornece a interface versioned.Interface
 )
 
 var (
-	// Clientset permite interagir com os recursos principais do Kubernetes
-	Clientset *kubernetes.Clientset
-	// MetricsClientset permite buscar métricas de uso de recursos
-	MetricsClientset *metricsclientset.Clientset
+	// Clientset permite interagir com os recursos principais do Kubernetes.
+	Clientset kubernetes.Interface
+
+	// MetricsClientset permite buscar métricas de uso de recursos.
+	MetricsClientset versioned.Interface
+
+	// InClusterConfigFunc é uma variável que armazena a função a ser usada para obter a configuração do cluster.
+	InClusterConfigFunc = rest.InClusterConfig
 )
 
 // InitClient inicializa a conexão com o cluster Kubernetes.
-// Ele tenta a configuração in-cluster primeiro, e como fallback, usa o kubeconfig local.
 func InitClient() error {
 	var config *rest.Config
 	var err error
 
-	// Tenta usar a configuração de dentro do cluster
-	if config, err = rest.InClusterConfig(); err != nil {
+	// Tenta usar a configuração de dentro do cluster através da nossa variável de função.
+	if config, err = InClusterConfigFunc(); err != nil {
 		log.Println("Não está em um cluster. Usando o kubeconfig local.")
 		homeDir, errHome := os.UserHomeDir()
 		if errHome != nil {
@@ -41,16 +45,15 @@ func InitClient() error {
 		log.Println("Rodando dentro do cluster.")
 	}
 
-	// Cria o clientset principal
+	// Cria o clientset principal.
 	Clientset, err = kubernetes.NewForConfig(config)
 	if err != nil {
 		return fmt.Errorf("falha ao criar clientset do Kubernetes: %w", err)
 	}
 
-	// Cria o clientset para métricas
-	MetricsClientset, err = metricsclientset.NewForConfig(config)
+	// Cria o clientset para métricas.
+	MetricsClientset, err = versioned.NewForConfig(config)
 	if err != nil {
-		// Isso não é um erro fatal, apenas um aviso
 		return fmt.Errorf("aviso: Falha ao criar clientset de métricas, dados de uso não estarão disponíveis: %w", err)
 	}
 
