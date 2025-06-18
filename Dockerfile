@@ -1,39 +1,36 @@
-# --- Build Stage ---
-# Use an official Go runtime as a parent image for building the application
+# Estágio 1: Builder - Compila a aplicação Go
 FROM golang:1.24-alpine AS builder
 
-# Set the working directory inside the container
-WORKDIR /app
+# Define o diretório de trabalho
+WORKDIR /src
 
-# Copy go mod and sum files to leverage Docker cache
-COPY go.mod go.sum ./
-
-# Download all dependencies. Dependencies will be cached if the go.mod and go.sum files are not changed
-RUN go mod download
-
-# Copy the source code from the current directory to the working directory inside the container
+# Copia todo o contexto do projeto de uma só vez.
+# Isso garante que o compilador Go veja a estrutura completa do módulo.
 COPY . .
 
-# Build the Go app as a static binary. This is crucial for a small final image size.
-# CGO_ENABLED=0 disables CGO
-# GOOS=linux specifies the target operating system
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o k8s-metrics-app .
+# Garante que as dependências estão consistentes.
+RUN go mod tidy
 
-# --- Final Stage ---
-# Use a minimal base image for the final container to keep it lightweight
+# Compila a aplicação. O Go irá localizar o módulo 'kubeowl' no WORKDIR
+# e resolver os pacotes 'internal' corretamente.
+RUN CGO_ENABLED=0 go build -o /app/kubeowl ./cmd/kubeowl
+
+# ---
+
+# Estágio 2: Final - Cria a imagem de produção enxuta
 FROM alpine:latest
 
-# Set the working directory for the final image
+# Define o diretório raiz para a aplicação
 WORKDIR /root/
 
-# Copy the static frontend file from the build context into the final image
-COPY index.html .
+# Copia apenas o binário compilado do estágio 'builder'
+COPY --from=builder /app/kubeowl .
 
-# Copy the pre-built binary from the "builder" stage
-COPY --from=builder /app/k8s-metrics-app .
+# Copia os arquivos estáticos do frontend (html, js) do estágio 'builder'
+COPY --from=builder /src/web/static ./web/static
 
-# Expose port 8080 to the outside world, this is the port our Go app listens on
+# Expõe a porta que a aplicação vai usar
 EXPOSE 8080
 
-# Command to run the executable when the container starts
-CMD ["./k8s-metrics-app"]
+# Define o comando para executar a aplicação quando o container iniciar
+CMD ["./kubeowl"]
