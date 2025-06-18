@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KubeOwl</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-blue: #3b82f6;
+            --primary-green: #10b981;
+            --primary-purple: #8b5cf6;
+            --primary-orange: #f59e0b;
+            --slate-50: #f8fafc;
+            --slate-100: #f1f5f9;
+            --slate-200: #e2e8f0;
+            --slate-600: #475569;
+            --slate-700: #334155;
+            --slate-900: #0f172a;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, var(--slate-50) 0%, var(--slate-100) 100%);
+            min-height: 100vh;
+            color: var(--slate-900);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 1.5rem;
+        }
+
+        /* Header Styles */
+        .header {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .header-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--slate-900) 0%, var(--slate-600) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .header-meta {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            border: 1px solid;
+        }
+
+        .text-green-600 {
+            background: #dcfdf7;
+            color: #065f46;
+            border-color: #6ee7b7;
+        }
+
+        .text-yellow-600 {
+            background: #fef3c7;
+            color: #92400e;
+            border-color: #fcd34d;
+        }
+
+        .last-updated {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            color: var(--slate-600);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--slate-200);
+            border-radius: 0.5rem;
+            background: white;
+            color: var(--slate-700);
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+
+        .btn:hover {
+            background: var(--slate-50);
+            border-color: var(--slate-300);
+        }
+
+        /* Card Styles */
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+            transition: transform 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+        }
+
+        .card-gradient-blue {
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        }
+
+        .card-gradient-green {
+            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+        }
+
+        .card-gradient-purple {
+            background: linear-gradient(135deg, #e9d5ff 0%, #ddd6fe 100%);
+        }
+
+        .card-gradient-orange {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1rem 0.5rem;
+        }
+
+        .card-title {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--slate-700);
+        }
+
+        .card-icon {
+            width: 1.25rem;
+            height: 1.25rem;
+        }
+
+        .card-content {
+            padding: 0 1rem 1rem;
+        }
+
+        .card-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .card-subtitle {
+            font-size: 0.75rem;
+            opacity: 0.8;
+        }
+
+        /* Main Grid */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Nodes Section */
+        .nodes-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .section-description {
+            color: var(--slate-600);
+            font-size: 0.875rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .node-item {
+            padding: 1.5rem 0;
+            border-bottom: 1px solid var(--slate-200);
+        }
+
+        .node-item:last-child {
+            border-bottom: none;
+        }
+
+        .node-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .node-name {
+            font-weight: 600;
+            color: #1d4ed8;
+        }
+
+        .resource-item {
+            margin-bottom: 1rem;
+        }
+
+        .resource-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.25rem;
+            font-size: 0.875rem;
+        }
+
+        .resource-label {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            color: var(--slate-600);
+        }
+
+        .resource-value {
+            font-family: 'Monaco', 'Menlo', monospace;
+            color: var(--slate-900);
+        }
+
+        .pod-count {
+            font-size: 0.875rem;
+            color: var(--slate-600);
+        }
+
+        /* Charts Section */
+        .charts-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .chart-container {
+            height: 300px;
+            position: relative;
+        }
+
+        /* Pods Section */
+        .pods-section .card-content {
+            padding: 1.5rem;
+        }
+
+        .tabs {
+            margin-bottom: 1.5rem;
+        }
+
+        .tabs-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            background: var(--slate-100);
+            border-radius: 0.5rem;
+            padding: 0.25rem;
+        }
+
+        .tab-trigger {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border: none;
+            background: transparent;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--slate-600);
+        }
+
+        .tab-trigger.sort-active {
+            background: white;
+            color: var(--primary-blue);
+            font-weight: 700;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .table-container {
+            border: 1px solid var(--slate-200);
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table-header {
+            background: var(--slate-50);
+        }
+
+        .table-header th {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: var(--slate-700);
+        }
+
+        .table-row {
+            border-bottom: 1px solid var(--slate-200);
+            transition: background-color 0.2s;
+        }
+
+        .table-row:hover {
+            background: var(--slate-50);
+        }
+
+        .table-row:last-child {
+            border-bottom: none;
+        }
+
+        .table-cell {
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
+        }
+
+        .pod-name {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.75rem;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 200px;
+            color: var(--slate-600);
+        }
+
+        .spinner {
+            width: 2rem;
+            height: 2rem;
+            border: 2px solid var(--slate-200);
+            border-top: 2px solid var(--primary-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .update-indicator {
+            width: 0.75rem;
+            height: 0.75rem;
+            background: var(--success);
+            border-radius: 50%;
+        }
+
+        .blinking {
+            animation: blinker 1.5s linear infinite;
+        }
+
+        @keyframes blinker {
+            50% { opacity: 0.3; }
+        }
+
+        /* Icons */
+        .icon {
+            width: 1rem;
+            height: 1rem;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        .icon-lg {
+            width: 1.25rem;
+            height: 1.25rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+            
+            .header-title {
+                font-size: 2rem;
+            }
+            
+            .cards-grid {
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 1rem;
+            }
+            
+            .header-content {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div>
+                    <h1 class="header-title">KubeOwl</h1>
+                    <div class="header-meta">
+                        <span id="running-status" class="badge">
+                            <span id="update-indicator" class="update-indicator"></span>
+                            Loading...
+                        </span>
+                        <div class="last-updated">
+                            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span id="last-updated">Updating...</span>
+                        </div>
+                    </div>
+                </div>
+                <button class="btn" onclick="fetchMetrics()">
+                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    Refresh
+                </button>
+            </div>
+        </header>
+
+        <!-- Overview Cards -->
+        <div class="cards-grid">
+            <div class="card card-gradient-blue">
+                <div class="card-header">
+                    <div class="card-title" style="color: #1e40af;">Nodes</div>
+                    <svg class="card-icon" style="color: #2563eb;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path>
+                    </svg>
+                </div>
+                <div class="card-content">
+                    <div class="card-value" style="color: #1e3a8a;" id="nodes-count">-</div>
+                    <div class="card-subtitle" style="color: #2563eb;">Cluster nodes</div>
+                </div>
+            </div>
+
+            <div class="card card-gradient-green">
+                <div class="card-header">
+                    <div class="card-title" style="color: #065f46;">Deployments</div>
+                    <svg class="card-icon" style="color: #059669;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                    </svg>
+                </div>
+                <div class="card-content">
+                    <div class="card-value" style="color: #064e3b;" id="deployments-count">-</div>
+                    <div class="card-subtitle" style="color: #059669;">Active workloads</div>
+                </div>
+            </div>
+
+            <div class="card card-gradient-purple">
+                <div class="card-header">
+                    <div class="card-title" style="color: #581c87;">Services</div>
+                    <svg class="card-icon" style="color: #7c3aed;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
+                    </svg>
+                </div>
+                <div class="card-content">
+                    <div class="card-value" style="color: #581c87;" id="services-count">-</div>
+                    <div class="card-subtitle" style="color: #7c3aed;">Network endpoints</div>
+                </div>
+            </div>
+
+            <div class="card card-gradient-orange">
+                <div class="card-header">
+                    <div class="card-title" style="color: #92400e;">Namespaces</div>
+                    <svg class="card-icon" style="color: #d97706;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                    </svg>
+                </div>
+                <div class="card-content">
+                    <div class="card-value" style="color: #92400e;" id="namespaces-count">-</div>
+                    <div class="card-subtitle" style="color: #d97706;">Logical partitions</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-grid">
+            <!-- Left Column: Nodes and Charts -->
+            <div class="nodes-section">
+                <!-- Nodes Section -->
+                <div class="card">
+                    <div class="card-content">
+                        <div class="section-header">
+                            <svg class="icon-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path>
+                            </svg>
+                            Node Information
+                        </div>
+                        <div id="nodes-list">
+                            <div class="loading">
+                                <div class="spinner"></div>
+                                Loading nodes...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CPU Chart -->
+                <div class="card">
+                    <div class="card-content">
+                        <div class="section-header">
+                            <svg class="icon-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path>
+                            </svg>
+                            Top Pods by CPU
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="cpuChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Memory Chart -->
+                <div class="card">
+                    <div class="card-content">
+                        <div class="section-header">
+                            <svg class="icon-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                            </svg>
+                            Top Pods by Memory
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="memChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Pod List -->
+            <div class="pods-section">
+                <div class="card">
+                    <div class="card-content">
+                        <div class="section-header">Pod Resource Usage</div>
+                        <div class="section-description">Real-time resource consumption by pods</div>
+                        
+                        <div class="tabs">
+                            <div class="tabs-list">
+                                <button class="tab-trigger sort-active" id="sort-cpu">
+                                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path>
+                                    </svg>
+                                    CPU
+                                </button>
+                                <button class="tab-trigger" id="sort-mem">
+                                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                                    </svg>
+                                    MEMORY
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="table-container">
+                            <table class="table">
+                                <thead class="table-header">
+                                    <tr>
+                                        <th>NAMESPACE</th>
+                                        <th>POD</th>
+                                        <th>CPU</th>
+                                        <th>MEMORY</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pods-table-body">
+                                    <tr>
+                                        <td colspan="4" class="table-cell">
+                                            <div class="loading">
+                                                <div class="spinner"></div>
+                                                Loading pod data...
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let cpuChart, memChart;
+        let currentSortKey = 'cpu';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeCharts();
+            fetchMetrics();
+            setInterval(fetchMetrics, 5000); // Refresh every 5 seconds
+
+            document.getElementById('sort-cpu').addEventListener('click', () => setSortKey('cpu'));
+            document.getElementById('sort-mem').addEventListener('click', () => setSortKey('mem'));
+        });
+
+        function setSortKey(key) {
+            currentSortKey = key;
+            document.getElementById('sort-cpu').classList.toggle('sort-active', key === 'cpu');
+            document.getElementById('sort-mem').classList.toggle('sort-active', key === 'mem');
+            fetchMetrics(); // Re-fetch and render with new sort
+        }
+
+        async function fetchMetrics() {
+            try {
+                const response = await fetch('/api/metrics');
+                if (!response.ok) throw new Error('Network response was not ok.');
+                const data = await response.json();
+                updateUI(data);
+            } catch (error) {
+                console.error('Error fetching metrics:', error);
+                document.getElementById('last-updated').innerText = 'Error fetching data.';
+            }
+        }
+
+        function updateUI(data) {
+            const updateIndicator = document.getElementById('update-indicator');
+            updateIndicator.classList.remove('blinking');
+            void updateIndicator.offsetWidth; // Trigger reflow to restart animation
+            updateIndicator.classList.add('blinking');
+            
+            // Header and summary
+            const runningStatus = document.getElementById('running-status');
+            runningStatus.innerHTML = `<span id="update-indicator" class="update-indicator blinking"></span> ${data.isRunningInCluster ? 'In Cluster' : 'Local'}`;
+            runningStatus.className = data.isRunningInCluster ? 'badge text-green-600' : 'badge text-yellow-600';
+            
+            document.getElementById('last-updated').innerText = `Last updated: ${new Date().toLocaleTimeString()}`;
+            document.getElementById('nodes-count').innerText = data.nodes.length;
+            document.getElementById('deployments-count').innerText = data.deploymentCount;
+            document.getElementById('services-count').innerText = data.serviceCount;
+            document.getElementById('namespaces-count').innerText = data.namespaceCount;
+            
+            // Nodes list (unchanged)
+            const nodesList = document.getElementById('nodes-list');
+            nodesList.innerHTML = '';
+            if (data.nodes.length > 0) {
+                data.nodes.forEach((node, index) => {
+                    nodesList.innerHTML += `
+                <div class="node-item">
+                    <div class="node-header">
+                        <h3 class="node-name">${node.name}</h3>
+                    </div>
+                    <div class="resource-item">
+                        <div class="resource-header">
+                            <span class="resource-label">
+                                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path>
+                                </svg>
+                                <strong>CPU:</strong>
+                            </span>
+                            <span class="resource-value">${node.usedCpu} / ${node.totalCpu} Cores</span>
+                        </div>
+                    </div>
+                    <div class="resource-item">
+                        <div class="resource-header">
+                            <span class="resource-label">
+                                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                                </svg>
+                                <strong>Memory:</strong>
+                            </span>
+                            <span class="resource-value">${node.usedMemory} / ${node.totalMemory}</span>
+                        </div>
+                    </div>
+                    <div class="pod-count">
+                        <strong>Pods:</strong> ${node.podCount}
+                </div>
+            </div>`;
+        });
+    } else {
+        nodesList.innerHTML = '<div class="loading">No nodes found.</div>';
+    }
+
+    // Sort pods ONLY for the table display
+    const sortedPodsForTable = [...data.pods].sort((a, b) => {
+        if (currentSortKey === 'mem') {
+            return b.usedMemoryBytes - a.usedMemoryBytes;
+        }
+        return b.usedCpuMilli - a.usedCpuMilli;
+    });
+    
+    // Pods table - uses sorted data
+    const podsTableBody = document.getElementById('pods-table-body');
+    podsTableBody.innerHTML = '';
+    if (sortedPodsForTable.length > 0) {
+        sortedPodsForTable.forEach(pod => {
+            podsTableBody.innerHTML += `
+                <tr class="table-row">
+                    <td class="table-cell">${pod.namespace}</td>
+                    <td class="table-cell">
+                        <div class="pod-name" title="${pod.name}">${pod.name}</div>
+                    </td>
+                    <td class="table-cell">
+                        <span class="resource-value">${pod.usedCpu}</span>
+                    </td>
+                    <td class="table-cell">
+                        <span class="resource-value">${pod.usedMemory}</span>
+                    </td>
+                </tr>`;
+        });
+    } else {
+        podsTableBody.innerHTML = '<tr><td colspan="4" class="table-cell"><div class="loading">No user pods with metrics found.</div></td></tr>';
+    }
+
+    // Update charts with original unsorted data - charts maintain their own sorting
+    updateCharts(data.pods);
+}
+
+function updateCharts(pods) {
+    // For charts, always show top 10 by their respective metrics (not affected by table sorting)
+    const topCpuPods = [...pods].sort((a, b) => b.usedCpuMilli - a.usedCpuMilli).slice(0, 10);
+    const topMemPods = [...pods].sort((a, b) => b.usedMemoryBytes - a.usedMemoryBytes).slice(0, 10);
+    
+    const cpuLabels = topCpuPods.map(p => p.name);
+    const cpuData = topCpuPods.map(p => p.usedCpuMilli);
+    
+    const memLabels = topMemPods.map(p => p.name);
+    const memData = topMemPods.map(p => p.usedMemoryBytes / (1024*1024)); // in MiB
+    
+    // CPU Chart - always shows top CPU consumers
+    cpuChart.data.labels = cpuLabels;
+    cpuChart.data.datasets[0].data = cpuData;
+    cpuChart.update();
+    
+    // Memory Chart - always shows top memory consumers
+    memChart.data.labels = memLabels;
+    memChart.data.datasets[0].data = memData;
+    memChart.update();
+}
+
+        function initializeCharts() {
+            const commonOptions = {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { 
+                    x: { 
+                        beginAtZero: true,
+                        grid: {
+                            color: '#e2e8f0'
+                        }
+                    },
+                    y: {
+                        grid: {
+                            color: '#e2e8f0'
+                        }
+                    }
+                },
+                plugins: { 
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleColor: '#f8fafc',
+                        bodyColor: '#f8fafc',
+                        borderColor: '#334155',
+                        borderWidth: 1
+                    }
+                }
+            };
+
+            cpuChart = new Chart(document.getElementById('cpuChart'), {
+                type: 'bar',
+                data: { 
+                    labels: [], 
+                    datasets: [{ 
+                        label: 'CPU (mCores)', 
+                        data: [], 
+                        backgroundColor: 'rgba(59, 130, 246, 0.6)',
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        borderWidth: 1
+                    }] 
+                },
+                options: commonOptions
+            });
+
+            memChart = new Chart(document.getElementById('memChart'), {
+                type: 'bar',
+                data: { 
+                    labels: [], 
+                    datasets: [{ 
+                        label: 'Memory (MiB)', 
+                        data: [], 
+                        backgroundColor: 'rgba(16, 185, 129, 0.6)',
+                        borderColor: 'rgba(16, 185, 129, 1)',
+                        borderWidth: 1
+                    }] 
+                },
+                options: commonOptions
+            });
+        }
+    </script>
+</body>
+</html>
