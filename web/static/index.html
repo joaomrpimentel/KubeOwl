@@ -4,36 +4,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KubeOwl Dashboard</title>
-    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Font Awesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* Apenas estilos globais mínimos são necessários aqui */
         body { font-family: 'Inter', sans-serif; }
         .main-section { animation: fadeIn 0.5s ease-in-out; }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        /* Custom scrollbar para uma aparência mais limpa */
+        /* Estilo da barra de rolagem */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
         html.dark ::-webkit-scrollbar-thumb { background-color: #4A5568; border-radius: 4px; }
         html.light ::-webkit-scrollbar-thumb { background-color: #CBD5E0; border-radius: 4px; }
     </style>
     <script>
-        // Configuração do modo escuro para o Tailwind
-        tailwind.config = {
-            darkMode: 'class',
-        }
+        tailwind.config = { darkMode: 'class' }
     </script>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 transition-colors duration-300">
 
     <!-- Container Principal -->
     <div class="flex h-screen">
-        <!-- Sidebar -->
+        <!-- Barra Lateral de Navegação -->
         <aside class="w-64 bg-white dark:bg-gray-800/50 backdrop-blur-sm border-r border-gray-200 dark:border-gray-700 p-5 flex flex-col shrink-0">
             <div class="flex items-center space-x-3 mb-10">
                 <i class="fas fa-eye text-3xl text-blue-500"></i>
@@ -43,6 +37,7 @@
                  <a href="#dashboard" class="nav-link active"><i class="fas fa-chart-line fa-fw mr-3"></i>Dashboard</a>
                  <a href="#nodes" class="nav-link"><i class="fas fa-server fa-fw mr-3"></i>Nós</a>
                  <a href="#pods" class="nav-link"><i class="fas fa-cube fa-fw mr-3"></i>Pods</a>
+                 <a href="#ingresses" class="nav-link"><i class="fas fa-route fa-fw mr-3"></i>Ingresses</a>
                  <a href="#storage" class="nav-link"><i class="fas fa-database fa-fw mr-3"></i>Armazenamento</a>
                  <a href="#events" class="nav-link"><i class="fas fa-bell fa-fw mr-3"></i>Eventos</a>
             </nav>
@@ -65,14 +60,12 @@
                 <header class="flex justify-between items-center mb-8">
                     <h2 class="text-3xl font-bold text-gray-800 dark:text-white">Visão Geral do Cluster</h2>
                 </header>
-                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg"><h3 class="text-sm font-semibold text-gray-400 dark:text-gray-500">NÓS</h3><p id="nodes-count" class="text-4xl font-bold mt-2 text-gray-800 dark:text-white">-</p></div>
                     <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg"><h3 class="text-sm font-semibold text-gray-400 dark:text-gray-500">DEPLOYMENTS</h3><p id="deployments-count" class="text-4xl font-bold mt-2 text-gray-800 dark:text-white">-</p></div>
-                    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg"><h3 class="text-sm font-semibold text-gray-400 dark:text-gray-500">SERVICES</h3><p id="services-count" class="text-4xl font-bold mt-2 text-gray-800 dark:text-white">-</p></div>
                     <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg"><h3 class="text-sm font-semibold text-gray-400 dark:text-gray-500">NAMESPACES</h3><p id="namespaces-count" class="text-4xl font-bold mt-2 text-gray-800 dark:text-white">-</p></div>
                 </div>
 
-                <!-- Seção de Capacidade do Cluster -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                     <!-- Uso de CPU -->
                     <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
@@ -117,6 +110,23 @@
                     </div>
                  </div>
             </section>
+
+            <section id="ingresses-section" class="main-section hidden">
+                <h2 class="text-3xl font-bold mb-8 text-gray-800 dark:text-white">Acessos Externos (Ingresses)</h2>
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
+                    <div class="overflow-x-auto">
+                       <table class="min-w-full">
+                           <thead><tr>
+                               <th class="py-3 px-4 text-left text-xs font-bold uppercase text-gray-400 dark:text-gray-500">Namespace</th>
+                               <th class="py-3 px-4 text-left text-xs font-bold uppercase text-gray-400 dark:text-gray-500">Nome</th>
+                               <th class="py-3 px-4 text-left text-xs font-bold uppercase text-gray-400 dark:text-gray-500">Hosts</th>
+                               <th class="py-3 px-4 text-left text-xs font-bold uppercase text-gray-400 dark:text-gray-500">Serviço de Backend</th>
+                           </tr></thead>
+                           <tbody id="ingresses-table-body"></tbody>
+                       </table>
+                   </div>
+                </div>
+           </section>
             
              <section id="storage-section" class="main-section hidden">
                  <h2 class="text-3xl font-bold mb-8 text-gray-800 dark:text-white">Armazenamento (PVCs)</h2>
