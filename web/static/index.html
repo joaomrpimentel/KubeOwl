@@ -4,87 +4,73 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KubeOwl Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome para os ícones -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        .main-section { animation: fadeIn 0.5s ease-in-out; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        /* Estilo da barra de rolagem */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        html.dark ::-webkit-scrollbar-thumb { background-color: #4A5568; border-radius: 4px; }
-        html.light ::-webkit-scrollbar-thumb { background-color: #CBD5E0; border-radius: 4px; }
-    </style>
-    <script>
-        tailwind.config = { darkMode: 'class' }
-    </script>
+    <!-- Nossa folha de estilos personalizada -->
+    <link rel="stylesheet" href="/css/style.css">
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 transition-colors duration-300">
+<body>
 
     <!-- Container Principal -->
-    <div class="flex h-screen">
+    <div class="container-principal">
         <!-- Barra Lateral de Navegação -->
-        <aside class="w-64 bg-white dark:bg-gray-800/50 backdrop-blur-sm border-r border-gray-200 dark:border-gray-700 p-5 flex flex-col shrink-0">
-            <div class="flex items-center space-x-3 mb-10">
-                <i class="fas fa-eye text-3xl text-blue-500"></i>
-                <h1 class="text-2xl font-bold text-gray-800 dark:text-white">Kube<span class="text-blue-500">Owl</span></h1>
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <i class="fas fa-eye"></i>
+                <h1>Kube<span class="text-blue">Owl</span></h1>
             </div>
-            <nav id="main-nav" class="flex flex-col space-y-2">
-                 <a href="#dashboard" class="nav-link active"><i class="fas fa-chart-line fa-fw mr-3"></i>Dashboard</a>
-                 <a href="#nodes" class="nav-link"><i class="fas fa-server fa-fw mr-3"></i>Nós</a>
-                 <a href="#pods" class="nav-link"><i class="fas fa-cube fa-fw mr-3"></i>Pods</a>
-                 <a href="#ingresses" class="nav-link"><i class="fas fa-route fa-fw mr-3"></i>Ingresses</a>
-                 <a href="#storage" class="nav-link"><i class="fas fa-database fa-fw mr-3"></i>Armazenamento</a>
-                 <a href="#events" class="nav-link"><i class="fas fa-bell fa-fw mr-3"></i>Eventos</a>
+            <nav id="main-nav">
+                 <a href="#dashboard" class="nav-link active"><i class="fas fa-chart-line"></i>Dashboard</a>
+                 <a href="#nodes" class="nav-link"><i class="fas fa-server"></i>Nós</a>
+                 <a href="#pods" class="nav-link"><i class="fas fa-cube"></i>Pods</a>
+                 <a href="#ingresses" class="nav-link"><i class="fas fa-route"></i>Ingresses</a>
+                 <a href="#storage" class="nav-link"><i class="fas fa-database"></i>Armazenamento</a>
+                 <a href="#events" class="nav-link"><i class="fas fa-bell"></i>Eventos</a>
             </nav>
-            <div class="mt-auto pt-5 border-t border-gray-200 dark:border-gray-700">
-                <div class="flex justify-between items-center">
-                    <div id="running-status" class="text-sm font-semibold"></div>
-                    <button id="theme-toggle" class="h-8 w-8 flex items-center justify-center rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"></button>
+            <div class="sidebar-footer">
+                <div class="status-container">
+                    <div id="running-status" class="status-text"></div>
+                    <button id="theme-toggle"></button>
                 </div>
-                 <div class="flex items-center justify-center space-x-2 mt-3">
-                    <span id="update-indicator" class="h-2 w-2 rounded-full bg-gray-500 transition-colors"></span>
-                    <span id="last-updated" class="text-xs text-gray-500 dark:text-gray-400">Aguardando dados...</span>
+                 <div class="update-container">
+                    <span id="update-indicator"></span>
+                    <span id="last-updated">Aguardando dados...</span>
                 </div>
             </div>
         </aside>
 
         <!-- Conteúdo Principal -->
-        <main class="flex-1 p-8 overflow-y-auto">
+        <main class="main-content">
             
             <section id="dashboard-section" class="main-section">
-                <header class="flex justify-between items-center mb-8">
-                    <h2 class="text-3xl font-bold text-gray-800 dark:text-white">Visão Geral do Cluster</h2>
+                <header>
+                    <h2>Visão Geral do Cluster</h2>
                 </header>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg"><h3 class="text-sm font-semibold text-gray-400 dark:text-gray-500">NÓS</h3><p id="nodes-count" class="text-4xl font-bold mt-2 text-gray-800 dark:text-white">-</p></div>
-                    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg"><h3 class="text-sm font-semibold text-gray-400 dark:text-gray-500">DEPLOYMENTS</h3><p id="deployments-count" class="text-4xl font-bold mt-2 text-gray-800 dark:text-white">-</p></div>
-                    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg"><h3 class="text-sm font-semibold text-gray-400 dark:text-gray-500">NAMESPACES</h3><p id="namespaces-count" class="text-4xl font-bold mt-2 text-gray-800 dark:text-white">-</p></div>
+                <div class="grid grid-cols-3">
+                    <div class="card"><h3>NÓS</h3><p id="nodes-count">-</p></div>
+                    <div class="card"><h3>DEPLOYMENTS</h3><p id="deployments-count">-</p></div>
+                    <div class="card"><h3>NAMESPACES</h3><p id="namespaces-count">-</p></div>
                 </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <div class="grid grid-cols-2">
                     <!-- Uso de CPU -->
-                    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-                        <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-3">Uso de CPU do Cluster</h3>
-                        <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 mb-2">
-                            <div id="cpu-progress-bar" class="bg-blue-600 h-4 rounded-full transition-all duration-500" style="width: 0%"></div>
+                    <div class="card">
+                        <h3>Uso de CPU do Cluster</h3>
+                        <div class="progress-bar-bg">
+                            <div id="cpu-progress-bar" class="progress-bar bg-blue" style="width: 0%"></div>
                         </div>
-                        <div class="flex justify-between text-sm font-mono text-gray-500 dark:text-gray-400">
+                        <div class="progress-labels">
                             <span id="cpu-usage-text">0 / 0 Cores</span>
                             <span id="cpu-usage-percentage">0%</span>
                         </div>
                     </div>
                     <!-- Uso de Memória -->
-                    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-                        <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-3">Uso de Memória do Cluster</h3>
-                        <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 mb-2">
-                            <div id="memory-progress-bar" class="bg-green-500 h-4 rounded-full transition-all duration-500" style="width: 0%"></div>
+                    <div class="card">
+                        <h3>Uso de Memória do Cluster</h3>
+                        <div class="progress-bar-bg">
+                            <div id="memory-progress-bar" class="progress-bar bg-green" style="width: 0%"></div>
                         </div>
-                        <div class="flex justify-between text-sm font-mono text-gray-500 dark:text-gray-400">
+                        <div class="progress-labels">
                             <span id="memory-usage-text">0 / 0 GiB</span>
                             <span id="memory-usage-percentage">0%</span>
                         </div>
@@ -93,18 +79,16 @@
             </section>
 
             <section id="nodes-section" class="main-section hidden">
-                 <h2 class="text-3xl font-bold mb-8 text-gray-800 dark:text-white">Nós do Cluster</h2>
-                 <div id="nodes-list" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"></div>
+                 <h2>Nós do Cluster</h2>
+                 <div id="nodes-list" class="grid grid-cols-3"></div>
             </section>
 
              <section id="pods-section" class="main-section hidden">
-                 <h2 class="text-3xl font-bold mb-8 text-gray-800 dark:text-white">Pods</h2>
-                 <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-                    <div class="overflow-x-auto">
-                         <table class="min-w-full">
-                            <thead class="border-b-2 border-gray-200 dark:border-gray-700">
-                                <tr id="pods-table-header"></tr>
-                            </thead>
+                 <h2>Pods</h2>
+                 <div class="card">
+                    <div class="table-container">
+                         <table>
+                            <thead><tr id="pods-table-header"></tr></thead>
                             <tbody id="pods-table-body"></tbody>
                         </table>
                     </div>
@@ -112,15 +96,12 @@
             </section>
 
             <section id="ingresses-section" class="main-section hidden">
-                <h2 class="text-3xl font-bold mb-8 text-gray-800 dark:text-white">Acessos Externos (Ingresses)</h2>
-                <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-                    <div class="overflow-x-auto">
-                       <table class="min-w-full">
+                <h2>Acessos Externos (Ingresses)</h2>
+                <div class="card">
+                    <div class="table-container">
+                       <table>
                            <thead><tr>
-                               <th class="py-3 px-4 text-left text-xs font-bold uppercase text-gray-400 dark:text-gray-500">Namespace</th>
-                               <th class="py-3 px-4 text-left text-xs font-bold uppercase text-gray-400 dark:text-gray-500">Nome</th>
-                               <th class="py-3 px-4 text-left text-xs font-bold uppercase text-gray-400 dark:text-gray-500">Hosts</th>
-                               <th class="py-3 px-4 text-left text-xs font-bold uppercase text-gray-400 dark:text-gray-500">Serviço de Backend</th>
+                               <th>Namespace</th><th>Nome</th><th>Hosts</th><th>Serviço de Backend</th>
                            </tr></thead>
                            <tbody id="ingresses-table-body"></tbody>
                        </table>
@@ -129,15 +110,12 @@
            </section>
             
              <section id="storage-section" class="main-section hidden">
-                 <h2 class="text-3xl font-bold mb-8 text-gray-800 dark:text-white">Armazenamento (PVCs)</h2>
-                 <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-                     <div class="overflow-x-auto">
-                        <table class="min-w-full">
+                 <h2>Armazenamento (PVCs)</h2>
+                 <div class="card">
+                     <div class="table-container">
+                        <table>
                             <thead><tr>
-                                <th class="py-3 px-4 text-left text-xs font-bold uppercase text-gray-400 dark:text-gray-500">Namespace</th>
-                                <th class="py-3 px-4 text-left text-xs font-bold uppercase text-gray-400 dark:text-gray-500">Nome</th>
-                                <th class="py-3 px-4 text-left text-xs font-bold uppercase text-gray-400 dark:text-gray-500">Status</th>
-                                <th class="py-3 px-4 text-left text-xs font-bold uppercase text-gray-400 dark:text-gray-500">Capacidade</th>
+                                <th>Namespace</th><th>Nome</th><th>Status</th><th>Capacidade</th>
                             </tr></thead>
                             <tbody id="pvcs-table-body"></tbody>
                         </table>
@@ -146,8 +124,8 @@
             </section>
 
             <section id="events-section" class="main-section hidden">
-                <h2 class="text-3xl font-bold mb-8 text-gray-800 dark:text-white">Eventos Recentes do Cluster</h2>
-                <div id="events-list" class="space-y-3"></div>
+                <h2>Eventos Recentes do Cluster</h2>
+                <div id="events-list" class="events-container"></div>
             </section>
         </main>
     </div>

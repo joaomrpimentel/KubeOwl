@@ -33,11 +33,14 @@ class KubeOwlApp {
             }
         };
 
-        const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        const storedTheme = localStorage.getItem('theme');
+        const preferredTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        const currentTheme = storedTheme || preferredTheme;
         applyTheme(currentTheme);
 
         themeToggle.addEventListener('click', () => {
-            const newTheme = document.documentElement.classList.toggle('dark') ? 'dark' : 'light';
+            const isDark = document.documentElement.classList.toggle('dark');
+            const newTheme = isDark ? 'dark' : 'light';
             localStorage.setItem('theme', newTheme);
             applyTheme(newTheme);
         });
@@ -80,10 +83,12 @@ class KubeOwlApp {
         this.allPods = data.pods || [];
 
         const updateIndicator = document.getElementById('update-indicator');
-        updateIndicator.classList.add('bg-green-500');
-        setTimeout(() => updateIndicator.classList.remove('bg-green-500'), 500);
+        updateIndicator.style.backgroundColor = 'var(--green-500)';
+        setTimeout(() => { updateIndicator.style.backgroundColor = 'var(--gray-500)'; }, 500);
 
-        document.getElementById('running-status').innerHTML = data.isRunningInCluster ? '<span class="text-green-500">In-Cluster</span>' : '<span class="text-yellow-500">Local</span>';
+        document.getElementById('running-status').innerHTML = data.isRunningInCluster 
+            ? `<span style="color: var(--green-500);">In-Cluster</span>` 
+            : `<span style="color: var(--yellow-500);">Local</span>`;
         document.getElementById('last-updated').innerText = `Atualizado: ${new Date().toLocaleTimeString()}`;
         document.getElementById('nodes-count').innerText = data.nodes?.length || 0;
         document.getElementById('deployments-count').innerText = data.deploymentCount || 0;
@@ -97,7 +102,6 @@ class KubeOwlApp {
         this.renderStorageView(data.pvcs || []);
     }
 
-    // Renderiza os medidores de capacidade do cluster (CPU e Memória).
     renderCapacityView(capacity) {
         if (!capacity) return;
 
@@ -113,108 +117,99 @@ class KubeOwlApp {
         document.getElementById('memory-usage-percentage').innerText = `${capacity.memoryUsagePercentage.toFixed(2)}%`;
     }
     
-    // Renderiza a lista de nós do cluster com barras de progresso.
+    // Renderiza a lista de nós do cluster com a nova estrutura HTML.
     renderNodeList(nodes) {
         const nodesList = document.getElementById('nodes-list');
         
         if (!nodes || nodes.length === 0) {
-            nodesList.innerHTML = '<p class="text-gray-500 col-span-full text-center">Nenhum nó encontrado.</p>';
+            nodesList.innerHTML = '<p>Nenhum nó encontrado.</p>';
             return;
         }
 
-        const allCardsHTML = nodes.map(node => `
-            <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-lg flex flex-col space-y-4">
-                <div class="flex justify-between items-center">
-                    <h4 class="font-bold text-blue-500 truncate text-lg">${node.name}</h4>
-                    ${node.role === 'Control-Plane' ? '<span class="px-3 py-1 text-xs rounded-full bg-blue-500/20 text-blue-400 font-semibold uppercase tracking-wider">MASTER</span>' : ''}
+        nodesList.innerHTML = nodes.map(node => `
+            <div class="card node-card">
+                <div class="node-header">
+                    <h4>${node.name}</h4>
+                    ${node.role === 'Control-Plane' ? '<span class="node-role">MASTER</span>' : ''}
                 </div>
     
                 <!-- Métricas de CPU -->
                 <div>
-                    <div class="flex justify-between items-end mb-1">
-                        <span class="text-sm font-semibold text-gray-600 dark:text-gray-300">CPU</span>
-                        <span class="text-sm font-mono text-gray-500 dark:text-gray-400">${node.usedCpu} / ${node.totalCpu} Cores</span>
+                    <div class="node-metric-label">
+                        <span>CPU</span>
+                        <span style="font-family: monospace;">${node.usedCpu} / ${node.totalCpu} Cores</span>
                     </div>
-                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
-                        <div class="bg-blue-600 h-2.5 rounded-full" style="width: ${node.cpuUsagePercentage.toFixed(2)}%"></div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar bg-blue" style="width: ${node.cpuUsagePercentage.toFixed(2)}%"></div>
                     </div>
                 </div>
     
                 <!-- Métricas de Memória -->
                 <div>
-                    <div class="flex justify-between items-end mb-1">
-                        <span class="text-sm font-semibold text-gray-600 dark:text-gray-300">Memória</span>
-                        <span class="text-sm font-mono text-gray-500 dark:text-gray-400">${node.usedMemory} / ${node.totalMemory}</span>
+                    <div class="node-metric-label">
+                        <span>Memória</span>
+                        <span style="font-family: monospace;">${node.usedMemory} / ${node.totalMemory}</span>
                     </div>
-                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
-                        <div class="bg-green-500 h-2.5 rounded-full" style="width: ${node.memoryUsagePercentage.toFixed(2)}%"></div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar bg-green" style="width: ${node.memoryUsagePercentage.toFixed(2)}%"></div>
                     </div>
                 </div>
                 
                 <!-- Contagem de Pods -->
-                <div class="pt-3 border-t border-gray-200 dark:border-gray-700/50 flex justify-between items-center">
-                     <span class="text-sm font-semibold text-gray-600 dark:text-gray-300">Pods em Execução</span>
-                     <span class="font-bold text-xl text-gray-800 dark:text-white">${node.podCount}</span>
+                <div class="node-pods-count">
+                     <span>Pods em Execução</span>
+                     <span class="count">${node.podCount}</span>
                 </div>
             </div>
         `).join('');
-        
-        nodesList.innerHTML = allCardsHTML;
     }
 
-    // Define cores para os diferentes status de pods.
-    getPodStatusColor(status) {
+    getPodStatusClass(status) {
         switch(status) {
             case 'Running':
             case 'Succeeded':
-                return 'bg-green-500/20 text-green-400';
+                return 'status-running';
             case 'Pending':
             case 'ContainerCreating':
-                return 'bg-yellow-500/20 text-yellow-400';
+                return 'status-pending';
             case 'Failed':
             case 'Error':
             case 'CrashLoopBackOff':
-                return 'bg-red-500/20 text-red-400';
+                return 'status-failed';
             default:
-                return 'bg-gray-500/20 text-gray-400';
+                return 'status-unknown';
         }
     }
     
-    // Renderiza a tabela de pods com status detalhado e reinicializações.
     renderPodTable() {
         const tableHeader = document.getElementById('pods-table-header');
         const tableBody = document.getElementById('pods-table-body');
         
         const headers = [
-            { name: 'Pod / Namespace', key: 'name' },
-            { name: 'Nó', key: 'nodeName' },
-            { name: 'Status', key: 'status' },
-            { name: 'Restarts', key: 'restarts' },
-            { name: 'CPU', key: 'usedCpuMilli' },
-            { name: 'Memória', key: 'usedMemoryBytes' },
+            { name: 'Pod / Namespace', key: 'name' }, { name: 'Nó', key: 'nodeName' }, { name: 'Status', key: 'status' },
+            { name: 'Restarts', key: 'restarts' }, { name: 'CPU', key: 'usedCpuMilli' }, { name: 'Memória', key: 'usedMemoryBytes' },
         ];
         
         tableHeader.innerHTML = headers.map(h => 
-            `<th class="py-3 px-4 text-left text-xs font-bold uppercase text-gray-400 dark:text-gray-500 cursor-pointer" data-key="${h.key}">${h.name} ${this.currentSort.key === h.key ? (this.currentSort.order === 'asc' ? '▲' : '▼') : ''}</th>`
+            `<th data-key="${h.key}">${h.name} ${this.currentSort.key === h.key ? (this.currentSort.order === 'asc' ? '▲' : '▼') : ''}</th>`
         ).join('');
         
         this.allPods.sort((a, b) => {
-            let aVal = a[this.currentSort.key];
-            let bVal = b[this.currentSort.key];
+            let aVal = a[this.currentSort.key]; let bVal = b[this.currentSort.key];
             if (typeof aVal === 'string') return this.currentSort.order === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
             return this.currentSort.order === 'asc' ? aVal - bVal : bVal - aVal;
         });
 
         tableBody.innerHTML = this.allPods.length ? this.allPods.map(pod => `
-            <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                <td class="py-3 px-4"><div class="font-bold text-sm truncate max-w-xs">${pod.name}</div><div class="text-xs text-gray-400">${pod.namespace}</div></td>
-                <td class="py-3 px-4 font-mono text-xs">${pod.nodeName || 'N/A'}</td>
-                <td class="py-3 px-4"><span class="px-2 py-1 text-xs rounded-full font-semibold ${this.getPodStatusColor(pod.status)}">${pod.status}</span></td>
-                <td class="py-3 px-4 font-mono text-center">${pod.restarts}</td>
-                <td class="py-3 px-4 font-mono text-sm">${pod.usedCpu || '-'}</td>
-                <td class="py-3 px-4 font-mono text-sm">${pod.usedMemory || '-'}</td>
+            <tr>
+                <td><div><b>${pod.name}</b></div><div style="font-size: 0.8rem; color: var(--gray-500);">${pod.namespace}</div></td>
+                <td style="font-family: monospace;">${pod.nodeName || 'N/A'}</td>
+                <td><span class="status-badge ${this.getPodStatusClass(pod.status)}">${pod.status}</span></td>
+                <td style="font-family: monospace; text-align: center;">${pod.restarts}</td>
+                <td style="font-family: monospace;">${pod.usedCpu || '-'}</td>
+                <td style="font-family: monospace;">${pod.usedMemory || '-'}</td>
             </tr>`
-        ).join('') : '<tr><td colspan="6" class="text-center py-8 text-gray-500">Nenhum pod encontrado.</td></tr>';
+        ).join('') : '<tr><td colspan="6" style="text-align: center; padding: 2rem;">Nenhum pod encontrado.</td></tr>';
         
         document.querySelectorAll('#pods-table-header th').forEach(th => {
             th.addEventListener('click', () => {
@@ -226,46 +221,40 @@ class KubeOwlApp {
         });
     }
 
-    // Renderiza a tabela de Ingresses.
     renderIngressesView(ingresses) {
         const ingressesTableBody = document.getElementById('ingresses-table-body');
         ingressesTableBody.innerHTML = ingresses.length ? ingresses.map(ingress => `
-             <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                <td class="py-3 px-4">${ingress.namespace}</td>
-                <td class="py-3 px-4 font-bold">${ingress.name}</td>
-                <td class="py-3 px-4 font-mono"><a href="http://${ingress.hosts.split(',')[0]}" target="_blank" class="text-blue-400 hover:underline">${ingress.hosts}</a></td>
-                <td class="py-3 px-4 font-mono">${ingress.service}</td>
+             <tr>
+                <td>${ingress.namespace}</td>
+                <td><b>${ingress.name}</b></td>
+                <td style="font-family: monospace;"><a href="http://${ingress.hosts.split(',')[0]}" target="_blank" style="color: var(--blue-500); text-decoration: none;">${ingress.hosts}</a></td>
+                <td style="font-family: monospace;">${ingress.service}</td>
             </tr>`
-        ).join('') : '<tr><td colspan="4" class="text-center py-8 text-gray-500">Nenhum Ingress encontrado.</td></tr>';
+        ).join('') : '<tr><td colspan="4" style="text-align: center; padding: 2rem;">Nenhum Ingress encontrado.</td></tr>';
     }
 
-    // Renderiza o feed de eventos recentes.
     renderEventFeed(events) {
         const eventsList = document.getElementById('events-list');
-        const eventTypeClasses = {
-            'Normal': 'border-l-4 border-blue-500',
-            'Warning': 'border-l-4 border-yellow-500'
-        };
+        const eventTypeBorders = { 'Normal': 'var(--blue-500)', 'Warning': 'var(--yellow-500)' };
         eventsList.innerHTML = events.length ? events.map(event => `
-            <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow ${eventTypeClasses[event.type] || 'border-l-4 border-gray-500'}">
-                <div class="flex justify-between items-center text-xs text-gray-400 mb-1">
-                    <span class="font-bold">${event.reason}</span>
+            <div class="card event-card" style="border-left-color: ${eventTypeBorders[event.type] || 'var(--gray-500)'};">
+                <div class="event-header">
+                    <b>${event.reason}</b>
                     <span>${event.timestamp}</span>
                 </div>
-                <p class="text-sm"><strong class="dark:text-white">${event.object}:</strong> ${event.message}</p>
-            </div>`).join('') : '<p class="text-gray-500">Nenhum evento recente.</p>';
+                <p class="event-message"><b>${event.object}:</b> ${event.message}</p>
+            </div>`).join('') : '<p>Nenhum evento recente.</p>';
     }
 
-    // Renderiza a tabela de PVCs (armazenamento).
     renderStorageView(pvcs) {
         const pvcsTableBody = document.getElementById('pvcs-table-body');
         pvcsTableBody.innerHTML = pvcs.length ? pvcs.map(pvc => `
-             <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                <td class="py-3 px-4">${pvc.namespace}</td>
-                <td class="py-3 px-4 font-bold">${pvc.name}</td>
-                <td class="py-3 px-4"><span class="px-2 py-1 text-xs rounded-full ${pvc.status === 'Bound' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}">${pvc.status}</span></td>
-                <td class="py-3 px-4 font-mono">${pvc.capacity}</td>
+             <tr>
+                <td>${pvc.namespace}</td>
+                <td><b>${pvc.name}</b></td>
+                <td><span class="status-badge ${pvc.status === 'Bound' ? 'status-bound' : 'status-pending'}">${pvc.status}</span></td>
+                <td style="font-family: monospace;">${pvc.capacity}</td>
             </tr>`
-        ).join('') : '<tr><td colspan="4" class="text-center py-8 text-gray-500">Nenhum PVC encontrado.</td></tr>';
+        ).join('') : '<tr><td colspan="4" style="text-align: center; padding: 2rem;">Nenhum PVC encontrado.</td></tr>';
     }
 }
