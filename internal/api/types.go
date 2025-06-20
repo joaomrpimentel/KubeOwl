@@ -1,5 +1,24 @@
 package api
 
+// OverviewResponse contém os dados para a tela principal do dashboard.
+type OverviewResponse struct {
+	IsRunningInCluster bool                `json:"isRunningInCluster"`
+	DeploymentCount    int                 `json:"deploymentCount"`
+	NamespaceCount     int                 `json:"namespaceCount"`
+	NodeCount          int                 `json:"nodeCount"`
+	Capacity           ClusterCapacityInfo `json:"capacity"`
+}
+
+// ServiceInfo contém informações formatadas sobre um Service.
+type ServiceInfo struct {
+	Name       string `json:"name"`
+	Namespace  string `json:"namespace"`
+	Type       string `json:"type"`
+	ClusterIP  string `json:"clusterIp"`
+	ExternalIP string `json:"externalIp"`
+	Ports      string `json:"ports"`
+}
+
 // IngressInfo contém informações sobre um Ingress.
 type IngressInfo struct {
 	Name      string `json:"name"`
@@ -59,17 +78,4 @@ type ClusterCapacityInfo struct {
 	TotalMemory           int64   `json:"totalMemory"`
 	UsedMemory            int64   `json:"usedMemory"`
 	MemoryUsagePercentage float64 `json:"memoryUsagePercentage"`
-}
-
-// RealtimeMetricsResponse é a estrutura principal da resposta da API.
-type RealtimeMetricsResponse struct {
-	IsRunningInCluster bool                `json:"isRunningInCluster"`
-	Nodes              []NodeInfo          `json:"nodes"`
-	Pods               []PodInfo           `json:"pods"`
-	Events             []EventInfo         `json:"events"`
-	Pvcs               []PvcInfo           `json:"pvcs"`
-	Ingresses          []IngressInfo       `json:"ingresses"`
-	Capacity           ClusterCapacityInfo `json:"capacity"`
-	DeploymentCount    int                 `json:"deploymentCount"`
-	NamespaceCount     int                 `json:"namespaceCount"`
 }

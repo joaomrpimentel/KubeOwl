@@ -9,16 +9,18 @@ import (
 )
 
 func main() {
-	// Inicializa o cliente do Kubernetes
 	if err := k8s.InitClient(); err != nil {
 		log.Printf("Aviso: Falha ao inicializar completamente o cliente K8s: %v", err)
 	}
 
-	// Define a rota da API
-	http.HandleFunc("/api/realtime", api.RealtimeHandler)
+	http.HandleFunc("/api/overview", api.OverviewHandler)
+	http.HandleFunc("/api/nodes", api.NodesHandler)
+	http.HandleFunc("/api/pods", api.PodsHandler)
+	http.HandleFunc("/api/services", api.ServicesHandler)
+	http.HandleFunc("/api/ingresses", api.IngressesHandler)
+	http.HandleFunc("/api/pvcs", api.PvcsHandler)
+	http.HandleFunc("/api/events", api.EventsHandler)
 
-	// Cria um file server para servir os arquivos estáticos do frontend
-	// O servidor automaticamente encontrará o index.html para a rota "/"
 	fs := http.FileServer(http.Dir("./web/static"))
 	http.Handle("/", fs)
 

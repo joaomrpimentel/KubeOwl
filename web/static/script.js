@@ -7,14 +7,15 @@ class KubeOwlApp {
     constructor() {
         this.currentSort = { key: 'name', order: 'asc' };
         this.allPods = [];
+        this.dataCache = {}; // Cache para armazenar os dados recebidos.
     }
 
     // Inicializa a aplicação.
     init() {
         this.setupTheme();
         this.setupNavigation();
-        this.fetchData();
-        setInterval(() => this.fetchData(), 5000); // Atualiza os dados a cada 5 segundos.
+        this.fetchAndRender();
+        setInterval(() => this.fetchAndRender(), 5000); // Atualiza os dados a cada 5 segundos.
     }
 
     // Configura a alternância de tema (claro/escuro).
@@ -61,45 +62,77 @@ class KubeOwlApp {
                 sections.forEach(s => {
                     s.classList.toggle('hidden', s.id !== `${targetId}-section`);
                 });
+                this.renderAllSections();
             });
         });
     }
 
-    // Busca os dados da API.
-    async fetchData() {
+    // Busca todos os dados dos novos endpoints e depois renderiza a UI.
+    async fetchAndRender() {
         try {
-            const realtimeRes = await fetch('/api/realtime');
-            if (!realtimeRes.ok) throw new Error('Falha ao buscar dados da API');
+            const endpoints = {
+                overview: '/api/overview',
+                nodes: '/api/nodes',
+                pods: '/api/pods',
+                services: '/api/services',
+                ingresses: '/api/ingresses',
+                pvcs: '/api/pvcs',
+                events: '/api/events'
+            };
+
+            const promises = Object.entries(endpoints).map(([key, url]) =>
+                fetch(url)
+                    .then(res => {
+                        if (!res.ok) throw new Error(`Falha na busca de ${url}`);
+                        return res.json();
+                    })
+                    .then(data => ({ key, data })) // Retorna a chave junto com os dados
+            );
+
+            const results = await Promise.all(promises);
+
+            // Atualiza o cache com os novos dados.
+            results.forEach(({ key, data }) => {
+                this.dataCache[key] = data;
+            });
             
-            const realtimeData = await realtimeRes.json();
-            this.updateRealtimeUI(realtimeData);
+            // Sinaliza que a atualização foi bem-sucedida.
+            const updateIndicator = document.getElementById('update-indicator');
+            updateIndicator.style.backgroundColor = 'var(--green-500)';
+            setTimeout(() => { updateIndicator.style.backgroundColor = 'var(--gray-500)'; }, 500);
+            document.getElementById('last-updated').innerText = `Atualizado: ${new Date().toLocaleTimeString()}`;
+
+            // Renderiza todas as seções com os dados do cache.
+            this.renderAllSections();
+
         } catch (error) {
             console.error("Erro ao buscar dados:", error);
         }
     }
 
-    // Atualiza a interface com os novos dados recebidos.
-    updateRealtimeUI(data) {
-        this.allPods = data.pods || [];
+    // Função central que renderiza todas as partes da UI a partir do cache.
+    renderAllSections() {
+        if (Object.keys(this.dataCache).length === 0) return; // Não renderiza se o cache estiver vazio.
 
-        const updateIndicator = document.getElementById('update-indicator');
-        updateIndicator.style.backgroundColor = 'var(--green-500)';
-        setTimeout(() => { updateIndicator.style.backgroundColor = 'var(--gray-500)'; }, 500);
-
+        this.renderOverview(this.dataCache.overview);
+        this.renderNodeList(this.dataCache.nodes);
+        this.renderPodTable(this.dataCache.pods);
+        this.renderServicesView(this.dataCache.services);
+        this.renderIngressesView(this.dataCache.ingresses);
+        this.renderEventFeed(this.dataCache.events);
+        this.renderStorageView(this.dataCache.pvcs);
+    }
+    
+    // ATUALIZADO: Renomeado de updateRealtimeUI e focado apenas na visão geral.
+    renderOverview(data) {
+        if (!data) return;
         document.getElementById('running-status').innerHTML = data.isRunningInCluster 
             ? `<span style="color: var(--green-500);">In-Cluster</span>` 
             : `<span style="color: var(--yellow-500);">Local</span>`;
-        document.getElementById('last-updated').innerText = `Atualizado: ${new Date().toLocaleTimeString()}`;
-        document.getElementById('nodes-count').innerText = data.nodes?.length || 0;
+        document.getElementById('nodes-count').innerText = data.nodeCount || 0;
         document.getElementById('deployments-count').innerText = data.deploymentCount || 0;
         document.getElementById('namespaces-count').innerText = data.namespaceCount || 0;
-        
         this.renderCapacityView(data.capacity);
-        this.renderNodeList(data.nodes || []);
-        this.renderPodTable();
-        this.renderIngressesView(data.ingresses || []);
-        this.renderEventFeed(data.events || []);
-        this.renderStorageView(data.pvcs || []);
     }
 
     renderCapacityView(capacity) {
@@ -117,45 +150,32 @@ class KubeOwlApp {
         document.getElementById('memory-usage-percentage').innerText = `${capacity.memoryUsagePercentage.toFixed(2)}%`;
     }
     
-    // Renderiza a lista de nós do cluster com a nova estrutura HTML.
     renderNodeList(nodes) {
         const nodesList = document.getElementById('nodes-list');
-        
-        if (!nodes || nodes.length === 0) {
-            nodesList.innerHTML = '<p>Nenhum nó encontrado.</p>';
+        if (!nodes) {
+            nodesList.innerHTML = '';
             return;
         }
-
         nodesList.innerHTML = nodes.map(node => `
             <div class="card node-card">
                 <div class="node-header">
                     <h4>${node.name}</h4>
                     ${node.role === 'Control-Plane' ? '<span class="node-role">MASTER</span>' : ''}
                 </div>
-    
-                <!-- Métricas de CPU -->
                 <div>
                     <div class="node-metric-label">
                         <span>CPU</span>
                         <span style="font-family: monospace;">${node.usedCpu} / ${node.totalCpu} Cores</span>
                     </div>
-                    <div class="progress-bar-bg">
-                        <div class="progress-bar bg-blue" style="width: ${node.cpuUsagePercentage.toFixed(2)}%"></div>
-                    </div>
+                    <div class="progress-bar-bg"><div class="progress-bar bg-blue" style="width: ${node.cpuUsagePercentage.toFixed(2)}%"></div></div>
                 </div>
-    
-                <!-- Métricas de Memória -->
                 <div>
                     <div class="node-metric-label">
                         <span>Memória</span>
                         <span style="font-family: monospace;">${node.usedMemory} / ${node.totalMemory}</span>
                     </div>
-                    <div class="progress-bar-bg">
-                        <div class="progress-bar bg-green" style="width: ${node.memoryUsagePercentage.toFixed(2)}%"></div>
-                    </div>
+                    <div class="progress-bar-bg"><div class="progress-bar bg-green" style="width: ${node.memoryUsagePercentage.toFixed(2)}%"></div></div>
                 </div>
-                
-                <!-- Contagem de Pods -->
                 <div class="node-pods-count">
                      <span>Pods em Execução</span>
                      <span class="count">${node.podCount}</span>
@@ -166,22 +186,17 @@ class KubeOwlApp {
 
     getPodStatusClass(status) {
         switch(status) {
-            case 'Running':
-            case 'Succeeded':
-                return 'status-running';
-            case 'Pending':
-            case 'ContainerCreating':
-                return 'status-pending';
-            case 'Failed':
-            case 'Error':
-            case 'CrashLoopBackOff':
-                return 'status-failed';
-            default:
-                return 'status-unknown';
+            case 'Running': case 'Succeeded': return 'status-running';
+            case 'Pending': case 'ContainerCreating': return 'status-pending';
+            case 'Failed': case 'Error': case 'CrashLoopBackOff': return 'status-failed';
+            default: return 'status-unknown';
         }
     }
     
-    renderPodTable() {
+    renderPodTable(pods) {
+        if (!pods) return;
+        this.allPods = pods; // Atualiza a lista local de pods para ordenação.
+
         const tableHeader = document.getElementById('pods-table-header');
         const tableBody = document.getElementById('pods-table-body');
         
@@ -216,13 +231,35 @@ class KubeOwlApp {
                 const key = th.dataset.key;
                 this.currentSort.order = (this.currentSort.key === key && this.currentSort.order === 'desc') ? 'asc' : 'desc';
                 this.currentSort.key = key;
-                this.renderPodTable();
+                this.renderPodTable(this.allPods); // Re-renderiza a tabela com a nova ordenação.
             });
         });
     }
 
+    renderServicesView(services) {
+        const servicesTableBody = document.getElementById('services-table-body');
+        if (!services) {
+            servicesTableBody.innerHTML = '';
+            return;
+        }
+        servicesTableBody.innerHTML = services.length ? services.map(service => `
+             <tr>
+                <td>${service.namespace}</td>
+                <td><b>${service.name}</b></td>
+                <td style="font-family: monospace;">${service.type}</td>
+                <td style="font-family: monospace;">${service.clusterIp || 'N/A'}</td>
+                <td style="font-family: monospace;">${service.externalIp || 'N/A'}</td>
+                <td style="font-family: monospace;">${service.ports}</td>
+            </tr>`
+        ).join('') : '<tr><td colspan="6" style="text-align: center; padding: 2rem;">Nenhum Serviço encontrado.</td></tr>';
+    }
+
     renderIngressesView(ingresses) {
         const ingressesTableBody = document.getElementById('ingresses-table-body');
+        if (!ingresses) {
+            ingressesTableBody.innerHTML = '';
+            return;
+        }
         ingressesTableBody.innerHTML = ingresses.length ? ingresses.map(ingress => `
              <tr>
                 <td>${ingress.namespace}</td>
@@ -235,6 +272,10 @@ class KubeOwlApp {
 
     renderEventFeed(events) {
         const eventsList = document.getElementById('events-list');
+        if (!events) {
+            eventsList.innerHTML = '';
+            return;
+        }
         const eventTypeBorders = { 'Normal': 'var(--blue-500)', 'Warning': 'var(--yellow-500)' };
         eventsList.innerHTML = events.length ? events.map(event => `
             <div class="card event-card" style="border-left-color: ${eventTypeBorders[event.type] || 'var(--gray-500)'};">
@@ -248,6 +289,10 @@ class KubeOwlApp {
 
     renderStorageView(pvcs) {
         const pvcsTableBody = document.getElementById('pvcs-table-body');
+        if (!pvcs) {
+            pvcsTableBody.innerHTML = '';
+            return;
+        }
         pvcsTableBody.innerHTML = pvcs.length ? pvcs.map(pvc => `
              <tr>
                 <td>${pvc.namespace}</td>

@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -11,6 +12,52 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 )
+
+// processServiceInfo formata os dados brutos dos serviços em uma estrutura mais amigável.
+func processServiceInfo(services *v1.ServiceList, userNamespaces map[string]bool) []ServiceInfo {
+	serviceInfoList := []ServiceInfo{}
+	if services == nil {
+		return serviceInfoList
+	}
+
+	for _, service := range services.Items {
+		// Ignora os serviços de namespaces do sistema.
+		if !userNamespaces[service.Namespace] {
+			continue
+		}
+
+		// Obtém o IP externo, se disponível.
+		externalIP := ""
+		if len(service.Status.LoadBalancer.Ingress) > 0 {
+			externalIP = service.Status.LoadBalancer.Ingress[0].IP
+		}
+
+		// Formata as portas para exibição.
+		var portStrings []string
+		for _, port := range service.Spec.Ports {
+			portStrings = append(portStrings, strconv.Itoa(int(port.Port)))
+		}
+
+		info := ServiceInfo{
+			Name:       service.Name,
+			Namespace:  service.Namespace,
+			Type:       string(service.Spec.Type),
+			ClusterIP:  service.Spec.ClusterIP,
+			ExternalIP: externalIP,
+			Ports:      strings.Join(portStrings, ", "),
+		}
+		serviceInfoList = append(serviceInfoList, info)
+	}
+
+	// Ordena a lista de serviços por nome para uma exibição consistente.
+	sort.Slice(serviceInfoList, func(i, j int) bool {
+		if serviceInfoList[i].Namespace == serviceInfoList[j].Namespace {
+			return serviceInfoList[i].Name < serviceInfoList[j].Name
+		}
+		return serviceInfoList[i].Namespace < serviceInfoList[j].Namespace
+	})
+	return serviceInfoList
+}
 
 // getPodStatus determina a condição detalhada de um pod.
 func getPodStatus(pod v1.Pod) (string, int32) {

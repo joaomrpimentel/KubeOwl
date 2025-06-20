@@ -23,6 +23,7 @@
                  <a href="#dashboard" class="nav-link active"><i class="fas fa-chart-line"></i>Dashboard</a>
                  <a href="#nodes" class="nav-link"><i class="fas fa-server"></i>Nós</a>
                  <a href="#pods" class="nav-link"><i class="fas fa-cube"></i>Pods</a>
+                 <a href="#services" class="nav-link"><i class="fas fa-network-wired"></i>Services</a> 
                  <a href="#ingresses" class="nav-link"><i class="fas fa-route"></i>Ingresses</a>
                  <a href="#storage" class="nav-link"><i class="fas fa-database"></i>Armazenamento</a>
                  <a href="#events" class="nav-link"><i class="fas fa-bell"></i>Eventos</a>
@@ -94,6 +95,25 @@
                     </div>
                  </div>
             </section>
+
+            <section id="services-section" class="main-section hidden">
+                <h2>Services</h2>
+                <div class="card">
+                   <div class="table-container">
+                      <table>
+                          <thead><tr>
+                              <th>Namespace</th>
+                              <th>Nome</th>
+                              <th>Tipo</th>
+                              <th>Cluster IP</th>
+                              <th>IP Externo</th>
+                              <th>Portas</th>
+                          </tr></thead>
+                          <tbody id="services-table-body"></tbody>
+                      </table>
+                  </div>
+                </div>
+           </section>
 
             <section id="ingresses-section" class="main-section hidden">
                 <h2>Acessos Externos (Ingresses)</h2>

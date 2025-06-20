@@ -3,86 +3,169 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
-	"sync"
-
 	"kubeowl/internal/k8s"
-
-	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
-	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
-	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 )
 
-// RealtimeHandler busca e retorna os dados em tempo real do cluster.
-func RealtimeHandler(w http.ResponseWriter, r *http.Request) {
-	var wg sync.WaitGroup
+// jsonResponse é uma função utilitária para enviar respostas JSON e tratar erros.
+func jsonResponse(w http.ResponseWriter, data interface{}, statusCode int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		log.Printf("Erro ao codificar resposta JSON: %v", err)
+	}
+}
+
+// OverviewHandler retorna dados agregados para a visão geral do dashboard.
+func OverviewHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
-	var nodes *v1.NodeList
-	var pods *v1.PodList
-	var deployments *appsv1.DeploymentList
-	var namespaces *v1.NamespaceList
-	var events *v1.EventList
-	var pvcs *v1.PersistentVolumeClaimList
-	var ingresses *networkingv1.IngressList
-	var nodeMetrics *metricsv1beta1.NodeMetricsList
-	var podMetrics *metricsv1beta1.PodMetricsList
-	var apiError error
-
-	fetch := func(fn func() error) {
-		defer wg.Done()
-		if err := fn(); err != nil && apiError == nil {
-			apiError = err
-		}
+	// Coleta apenas os dados necessários para a visão geral.
+	deployments, err := k8s.Clientset.AppsV1().Deployments("").List(ctx, metav1.ListOptions{})
+	if err != nil {
+		jsonResponse(w, map[string]string{"error": "Falha ao buscar deployments"}, http.StatusInternalServerError)
+		return
 	}
-
-	// Busca os recursos principais do cluster em paralelo.
-	wg.Add(7)
-	go fetch(func() (err error) { nodes, err = k8s.Clientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{}); return })
-	go fetch(func() (err error) { pods, err = k8s.Clientset.CoreV1().Pods("").List(ctx, metav1.ListOptions{}); return })
-	go fetch(func() (err error) { deployments, err = k8s.Clientset.AppsV1().Deployments("").List(ctx, metav1.ListOptions{}); return })
-	go fetch(func() (err error) { namespaces, err = k8s.Clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{}); return })
-	go fetch(func() (err error) { events, err = k8s.Clientset.CoreV1().Events("").List(ctx, metav1.ListOptions{}); return })
-	go fetch(func() (err error) { pvcs, err = k8s.Clientset.CoreV1().PersistentVolumeClaims("").List(ctx, metav1.ListOptions{}); return })
-	go fetch(func() (err error) { ingresses, err = k8s.Clientset.NetworkingV1().Ingresses("").List(ctx, metav1.ListOptions{}); return })
-
-	// Busca as métricas de uso se o Metrics Server estiver disponível.
-	if k8s.MetricsClientset != nil {
-		wg.Add(2)
-		go fetch(func() (err error) { nodeMetrics, err = k8s.MetricsClientset.MetricsV1beta1().NodeMetricses().List(ctx, metav1.ListOptions{}); return })
-		go fetch(func() (err error) { podMetrics, err = k8s.MetricsClientset.MetricsV1beta1().PodMetricses("").List(ctx, metav1.ListOptions{}); return })
+	namespaces, err := k8s.Clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		jsonResponse(w, map[string]string{"error": "Falha ao buscar namespaces"}, http.StatusInternalServerError)
+		return
 	}
-
-	wg.Wait()
-
-	if apiError != nil {
-		log.Printf("Erro ao buscar dados do cluster: %v", apiError)
-		http.Error(w, fmt.Sprintf("Erro ao buscar dados do cluster: %v", apiError), http.StatusInternalServerError)
+	nodes, err := k8s.Clientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		jsonResponse(w, map[string]string{"error": "Falha ao buscar nós"}, http.StatusInternalServerError)
 		return
 	}
 
-	// Processa os dados coletados.
-	userNamespaceCount, userNamespaces := processNamespaces(namespaces)
-	_, inClusterErr := rest.InClusterConfig()
-	isRunningInCluster := inClusterErr == nil
+	nodeMetrics, _ := k8s.MetricsClientset.MetricsV1beta1().NodeMetricses().List(ctx, metav1.ListOptions{})
 
-	response := RealtimeMetricsResponse{
-		IsRunningInCluster: isRunningInCluster,
-		Nodes:              processNodeInfo(nodes, pods, nodeMetrics),
-		Pods:               processPodInfo(pods, podMetrics, userNamespaces),
-		Events:             processEvents(events, userNamespaces),
-		Pvcs:               processPvcs(pvcs, userNamespaces),
-		Ingresses:          processIngressInfo(ingresses, userNamespaces),
-		Capacity:           processClusterCapacity(nodes, nodeMetrics),
+	// Processa os dados.
+	userNamespaceCount, _ := processNamespaces(namespaces)
+	_, inClusterErr := rest.InClusterConfig()
+
+	response := OverviewResponse{
+		IsRunningInCluster: inClusterErr == nil,
 		DeploymentCount:    len(deployments.Items),
 		NamespaceCount:     userNamespaceCount,
+		NodeCount:          len(nodes.Items),
+		Capacity:           processClusterCapacity(nodes, nodeMetrics),
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	jsonResponse(w, response, http.StatusOK)
+}
+
+// NodesHandler retorna a lista de nós e suas métricas.
+func NodesHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
+	nodes, err := k8s.Clientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		jsonResponse(w, []NodeInfo{}, http.StatusInternalServerError)
+		return
+	}
+	pods, _ := k8s.Clientset.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
+	nodeMetrics, _ := k8s.MetricsClientset.MetricsV1beta1().NodeMetricses().List(ctx, metav1.ListOptions{})
+
+	processedData := processNodeInfo(nodes, pods, nodeMetrics)
+	jsonResponse(w, processedData, http.StatusOK)
+}
+
+// PodsHandler retorna a lista de pods e suas métricas.
+func PodsHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
+	pods, err := k8s.Clientset.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
+	if err != nil {
+		jsonResponse(w, []PodInfo{}, http.StatusInternalServerError)
+		return
+	}
+	podMetrics, _ := k8s.MetricsClientset.MetricsV1beta1().PodMetricses("").List(ctx, metav1.ListOptions{})
+	
+	// É necessário buscar os namespaces para filtrar os pods.
+	namespaces, err := k8s.Clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		jsonResponse(w, []PodInfo{}, http.StatusInternalServerError)
+		return
+	}
+	_, userNamespaces := processNamespaces(namespaces)
+
+	processedData := processPodInfo(pods, podMetrics, userNamespaces)
+	jsonResponse(w, processedData, http.StatusOK)
+}
+
+// ServicesHandler retorna a lista de serviços.
+func ServicesHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
+	services, err := k8s.Clientset.CoreV1().Services("").List(ctx, metav1.ListOptions{})
+	if err != nil {
+		jsonResponse(w, []ServiceInfo{}, http.StatusInternalServerError)
+		return
+	}
+	namespaces, err := k8s.Clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		jsonResponse(w, []ServiceInfo{}, http.StatusInternalServerError)
+		return
+	}
+	_, userNamespaces := processNamespaces(namespaces)
+
+	processedData := processServiceInfo(services, userNamespaces)
+	jsonResponse(w, processedData, http.StatusOK)
+}
+
+// IngressesHandler retorna a lista de ingresses.
+func IngressesHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
+	ingresses, err := k8s.Clientset.NetworkingV1().Ingresses("").List(ctx, metav1.ListOptions{})
+	if err != nil {
+		jsonResponse(w, []IngressInfo{}, http.StatusInternalServerError)
+		return
+	}
+	namespaces, err := k8s.Clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		jsonResponse(w, []IngressInfo{}, http.StatusInternalServerError)
+		return
+	}
+	_, userNamespaces := processNamespaces(namespaces)
+
+	processedData := processIngressInfo(ingresses, userNamespaces)
+	jsonResponse(w, processedData, http.StatusOK)
+}
+
+// PvcsHandler retorna a lista de PersistentVolumeClaims.
+func PvcsHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
+	pvcs, err := k8s.Clientset.CoreV1().PersistentVolumeClaims("").List(ctx, metav1.ListOptions{})
+	if err != nil {
+		jsonResponse(w, []PvcInfo{}, http.StatusInternalServerError)
+		return
+	}
+	namespaces, err := k8s.Clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		jsonResponse(w, []PvcInfo{}, http.StatusInternalServerError)
+		return
+	}
+	_, userNamespaces := processNamespaces(namespaces)
+
+	processedData := processPvcs(pvcs, userNamespaces)
+	jsonResponse(w, processedData, http.StatusOK)
+}
+
+// EventsHandler retorna a lista de eventos recentes.
+func EventsHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
+	events, err := k8s.Clientset.CoreV1().Events("").List(ctx, metav1.ListOptions{})
+	if err != nil {
+		jsonResponse(w, []EventInfo{}, http.StatusInternalServerError)
+		return
+	}
+	namespaces, err := k8s.Clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		jsonResponse(w, []EventInfo{}, http.StatusInternalServerError)
+		return
+	}
+	_, userNamespaces := processNamespaces(namespaces)
+	
+	processedData := processEvents(events, userNamespaces)
+	jsonResponse(w, processedData, http.StatusOK)
 }
