@@ -200,7 +200,7 @@ class KubeOwlApp {
 
         // Lógica de Adição/Modificação
         if (existingIndex > -1) {
-            // Modifica
+            // Modifica: Mantém os dados antigos (como métricas) e atualiza com os novos do WebSocket
             cache[existingIndex] = { ...cache[existingIndex], ...processedItem };
             const domElement = this.domElementMap.get(id);
             if (domElement) {
@@ -229,9 +229,6 @@ class KubeOwlApp {
                 nodeName: resource.spec.nodeName,
                 status: status,
                 restarts: restarts,
-                // Métricas serão preenchidas pelo fetch periódico
-                usedCpu: '-',
-                usedMemory: '-',
             };
         }
         return resource;
@@ -314,6 +311,7 @@ class KubeOwlApp {
     }
 
     getPodStatusClass(status) {
+        if (!status) return 'status-unknown';
         const s = status.toLowerCase();
         if (s.includes('running') || s.includes('succeeded')) return 'status-running';
         if (s.includes('pending') || s.includes('creating')) return 'status-pending';
@@ -328,7 +326,7 @@ class KubeOwlApp {
         tr.innerHTML = `
             <td><div><b>${pod.name}</b></div><div style="font-size: 0.8rem; color: var(--gray-500);">${pod.namespace}</div></td>
             <td style="font-family: monospace;">${pod.nodeName || 'N/A'}</td>
-            <td><span class="status-badge ${this.getPodStatusClass(pod.status)}">${pod.status}</span></td>
+            <td><span class="status-badge ${this.getPodStatusClass(pod.status)}">${pod.status || 'Unknown'}</span></td>
             <td style="font-family: monospace; text-align: center;">${pod.restarts}</td>
             <td style="font-family: monospace;">${pod.usedCpu || '-'}</td>
             <td style="font-family: monospace;">${pod.usedMemory || '-'}</td>
@@ -337,13 +335,50 @@ class KubeOwlApp {
     }
     
     renderPodTable(pods) {
+        const tableHeader = document.getElementById('pods-table-header');
         const tableBody = document.getElementById('pods-table-body');
+
+        // Adiciona a lógica para renderizar o cabeçalho e os listeners de ordenação
+        const headers = [
+            { name: 'Pod / Namespace', key: 'name' },
+            { name: 'Nó', key: 'nodeName' },
+            { name: 'Status', key: 'status' },
+            { name: 'Restarts', key: 'restarts' },
+            { name: 'CPU', key: 'usedCpuMilli' },
+            { name: 'Memória', key: 'usedMemoryBytes' },
+        ];
+        
+        tableHeader.innerHTML = headers.map(h => 
+            `<th data-key="${h.key}" style="cursor: pointer;">${h.name} ${this.currentSort.key === h.key ? (this.currentSort.order === 'asc' ? '▲' : '▼') : ''}</th>`
+        ).join('');
+
+        document.querySelectorAll('#pods-table-header th').forEach(th => {
+            th.addEventListener('click', () => {
+                const key = th.dataset.key;
+                if (this.currentSort.key === key) {
+                    this.currentSort.order = this.currentSort.order === 'asc' ? 'desc' : 'asc';
+                } else {
+                    this.currentSort.key = key;
+                    this.currentSort.order = 'asc';
+                }
+                this.renderPodTable(this.dataCache.pods);
+            });
+        });
+
         tableBody.innerHTML = ''; // Limpa a tabela
         this.domElementMap.clear(); // Limpa o mapa de elementos
 
+        // Ordena os pods
         pods.sort((a, b) => {
-            let aVal = a[this.currentSort.key]; let bVal = b[this.currentSort.key];
-            if (typeof aVal === 'string') return this.currentSort.order === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+            let aVal = a[this.currentSort.key]; 
+            let bVal = b[this.currentSort.key];
+            
+            if (aVal === undefined || aVal === null) aVal = typeof bVal === 'string' ? '' : 0;
+            if (bVal === undefined || bVal === null) bVal = typeof aVal === 'string' ? '' : 0;
+
+            if (typeof aVal === 'string') {
+                return this.currentSort.order === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+            }
             return this.currentSort.order === 'asc' ? aVal - bVal : bVal - aVal;
         });
 
@@ -351,7 +386,8 @@ class KubeOwlApp {
             tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem;">Nenhum pod encontrado.</td></tr>';
             return;
         }
-
+        
+        // Renderiza as linhas da tabela
         pods.forEach(pod => {
             const row = this.renderPodRow(pod);
             tableBody.appendChild(row);
