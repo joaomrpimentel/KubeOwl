@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+
 	"kubeowl/internal/k8s"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
@@ -23,7 +24,6 @@ func jsonResponse(w http.ResponseWriter, data interface{}, statusCode int) {
 func OverviewHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
-	// Coleta apenas os dados necessários para a visão geral.
 	deployments, err := k8s.Clientset.AppsV1().Deployments("").List(ctx, metav1.ListOptions{})
 	if err != nil {
 		jsonResponse(w, map[string]string{"error": "Falha ao buscar deployments"}, http.StatusInternalServerError)
@@ -42,7 +42,6 @@ func OverviewHandler(w http.ResponseWriter, r *http.Request) {
 
 	nodeMetrics, _ := k8s.MetricsClientset.MetricsV1beta1().NodeMetricses().List(ctx, metav1.ListOptions{})
 
-	// Processa os dados.
 	userNamespaceCount, _ := processNamespaces(namespaces)
 	_, inClusterErr := rest.InClusterConfig()
 
@@ -81,8 +80,7 @@ func PodsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	podMetrics, _ := k8s.MetricsClientset.MetricsV1beta1().PodMetricses("").List(ctx, metav1.ListOptions{})
-	
-	// É necessário buscar os namespaces para filtrar os pods.
+
 	namespaces, err := k8s.Clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		jsonResponse(w, []PodInfo{}, http.StatusInternalServerError)
@@ -165,7 +163,7 @@ func EventsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_, userNamespaces := processNamespaces(namespaces)
-	
+
 	processedData := processEvents(events, userNamespaces)
 	jsonResponse(w, processedData, http.StatusOK)
 }
