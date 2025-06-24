@@ -10,22 +10,33 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// K8sService define a interface para interagir com o cluster Kubernetes.
-type K8sService struct {
+// Service define a interface para interagir com o cluster.
+type Service interface {
+	GetOverviewData(ctx context.Context) (*models.OverviewResponse, error)
+	GetNodeInfo(ctx context.Context) ([]models.NodeInfo, error)
+	GetPodInfo(ctx context.Context) ([]models.PodInfo, error)
+	GetServiceInfo(ctx context.Context) ([]models.ServiceInfo, error)
+	GetIngressInfo(ctx context.Context) ([]models.IngressInfo, error)
+	GetPvcInfo(ctx context.Context) ([]models.PvcInfo, error)
+	GetEventInfo(ctx context.Context) ([]models.EventInfo, error)
+}
+
+// k8sService é a implementação concreta da interface Service.
+type k8sService struct {
 	clientset        kubernetes.Interface
 	metricsClientset versioned.Interface
 }
 
-// NewK8sService cria uma nova instância do K8sService.
-func NewK8sService(clientset kubernetes.Interface, metricsClientset versioned.Interface) *K8sService {
-	return &K8sService{
+// NewK8sService cria uma nova instância do k8sService.
+func NewK8sService(clientset kubernetes.Interface, metricsClientset versioned.Interface) Service {
+	return &k8sService{
 		clientset:        clientset,
 		metricsClientset: metricsClientset,
 	}
 }
 
 // GetOverviewData coleta e processa os dados para a visão geral.
-func (s *K8sService) GetOverviewData(ctx context.Context) (*models.OverviewResponse, error) {
+func (s *k8sService) GetOverviewData(ctx context.Context) (*models.OverviewResponse, error) {
 	deployments, err := s.clientset.AppsV1().Deployments("").List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -54,7 +65,7 @@ func (s *K8sService) GetOverviewData(ctx context.Context) (*models.OverviewRespo
 }
 
 // GetNodeInfo coleta e processa informações dos nós.
-func (s *K8sService) GetNodeInfo(ctx context.Context) ([]models.NodeInfo, error) {
+func (s *k8sService) GetNodeInfo(ctx context.Context) ([]models.NodeInfo, error) {
 	nodes, err := s.clientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -66,7 +77,7 @@ func (s *K8sService) GetNodeInfo(ctx context.Context) ([]models.NodeInfo, error)
 }
 
 // GetPodInfo coleta e processa informações dos pods.
-func (s *K8sService) GetPodInfo(ctx context.Context) ([]models.PodInfo, error) {
+func (s *k8sService) GetPodInfo(ctx context.Context) ([]models.PodInfo, error) {
 	pods, err := s.clientset.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -81,7 +92,7 @@ func (s *K8sService) GetPodInfo(ctx context.Context) ([]models.PodInfo, error) {
 }
 
 // GetServiceInfo coleta e processa informações dos services.
-func (s *K8sService) GetServiceInfo(ctx context.Context) ([]models.ServiceInfo, error) {
+func (s *k8sService) GetServiceInfo(ctx context.Context) ([]models.ServiceInfo, error) {
 	services, err := s.clientset.CoreV1().Services("").List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -95,7 +106,7 @@ func (s *K8sService) GetServiceInfo(ctx context.Context) ([]models.ServiceInfo, 
 }
 
 // GetIngressInfo coleta e processa informações dos ingresses.
-func (s *K8sService) GetIngressInfo(ctx context.Context) ([]models.IngressInfo, error) {
+func (s *k8sService) GetIngressInfo(ctx context.Context) ([]models.IngressInfo, error) {
 	ingresses, err := s.clientset.NetworkingV1().Ingresses("").List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -109,7 +120,7 @@ func (s *K8sService) GetIngressInfo(ctx context.Context) ([]models.IngressInfo, 
 }
 
 // GetPvcInfo coleta e processa informações dos PVCs.
-func (s *K8sService) GetPvcInfo(ctx context.Context) ([]models.PvcInfo, error) {
+func (s *k8sService) GetPvcInfo(ctx context.Context) ([]models.PvcInfo, error) {
 	pvcs, err := s.clientset.CoreV1().PersistentVolumeClaims("").List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -123,7 +134,7 @@ func (s *K8sService) GetPvcInfo(ctx context.Context) ([]models.PvcInfo, error) {
 }
 
 // GetEventInfo coleta e processa informações dos eventos.
-func (s *K8sService) GetEventInfo(ctx context.Context) ([]models.EventInfo, error) {
+func (s *k8sService) GetEventInfo(ctx context.Context) ([]models.EventInfo, error) {
 	events, err := s.clientset.CoreV1().Events("").List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err

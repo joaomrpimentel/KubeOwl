@@ -7,7 +7,7 @@ import (
 )
 
 func (r *Router) OverviewHandler(w http.ResponseWriter, req *http.Request) {
-	data, err := r.k8sService.GetOverviewData(req.Context())
+	data, err := r.Service.GetOverviewData(req.Context())
 	if err != nil {
 		jsonErrorResponse(w, "Falha ao buscar dados da visão geral", http.StatusInternalServerError)
 		return
@@ -16,7 +16,7 @@ func (r *Router) OverviewHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) NodesHandler(w http.ResponseWriter, req *http.Request) {
-	data, err := r.k8sService.GetNodeInfo(req.Context())
+	data, err := r.Service.GetNodeInfo(req.Context())
 	if err != nil {
 		jsonErrorResponse(w, "Falha ao buscar dados dos nós", http.StatusInternalServerError)
 		return
@@ -25,7 +25,7 @@ func (r *Router) NodesHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) PodsHandler(w http.ResponseWriter, req *http.Request) {
-	data, err := r.k8sService.GetPodInfo(req.Context())
+	data, err := r.Service.GetPodInfo(req.Context())
 	if err != nil {
 		jsonErrorResponse(w, "Falha ao buscar dados dos pods", http.StatusInternalServerError)
 		return
@@ -34,7 +34,7 @@ func (r *Router) PodsHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) ServicesHandler(w http.ResponseWriter, req *http.Request) {
-	data, err := r.k8sService.GetServiceInfo(req.Context())
+	data, err := r.Service.GetServiceInfo(req.Context())
 	if err != nil {
 		jsonErrorResponse(w, "Falha ao buscar dados dos services", http.StatusInternalServerError)
 		return
@@ -43,7 +43,7 @@ func (r *Router) ServicesHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) IngressesHandler(w http.ResponseWriter, req *http.Request) {
-	data, err := r.k8sService.GetIngressInfo(req.Context())
+	data, err := r.Service.GetIngressInfo(req.Context())
 	if err != nil {
 		jsonErrorResponse(w, "Falha ao buscar dados dos ingresses", http.StatusInternalServerError)
 		return
@@ -52,7 +52,7 @@ func (r *Router) IngressesHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) PvcsHandler(w http.ResponseWriter, req *http.Request) {
-	data, err := r.k8sService.GetPvcInfo(req.Context())
+	data, err := r.Service.GetPvcInfo(req.Context())
 	if err != nil {
 		jsonErrorResponse(w, "Falha ao buscar dados dos PVCs", http.StatusInternalServerError)
 		return
@@ -61,7 +61,7 @@ func (r *Router) PvcsHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) EventsHandler(w http.ResponseWriter, req *http.Request) {
-	data, err := r.k8sService.GetEventInfo(req.Context())
+	data, err := r.Service.GetEventInfo(req.Context())
 	if err != nil {
 		jsonErrorResponse(w, "Falha ao buscar dados dos eventos", http.StatusInternalServerError)
 		return

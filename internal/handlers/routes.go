@@ -8,15 +8,15 @@ import (
 
 // Router gerencia o roteamento da API.
 type Router struct {
-	hub        *websocket.Hub
-	k8sService *services.K8sService
+	hub     *websocket.Hub
+	Service services.Service
 }
 
 // NewRouter cria uma nova instância do Router.
-func NewRouter(hub *websocket.Hub, k8sService *services.K8sService) *Router {
+func NewRouter(hub *websocket.Hub, service services.Service) *Router {
 	return &Router{
-		hub:        hub,
-		k8sService: k8sService,
+		hub:     hub,
+		Service: service,
 	}
 }
 
