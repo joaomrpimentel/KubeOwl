@@ -1,4 +1,4 @@
-package api
+package models
 
 // OverviewResponse contém os dados para a tela principal do dashboard.
 type OverviewResponse struct {
@@ -78,4 +78,10 @@ type ClusterCapacityInfo struct {
 	TotalMemory           int64   `json:"totalMemory"`
 	UsedMemory            int64   `json:"usedMemory"`
 	MemoryUsagePercentage float64 `json:"memoryUsagePercentage"`
+}
+
+// WSMessage define a estrutura da mensagem enviada pelo WebSocket.
+type WSMessage struct {
+	Type    string      `json:"type"`
+	Payload interface{} `json:"payload"`
 }

@@ -1,7 +1,8 @@
-package api
+package services
 
 import (
 	"fmt"
+	"kubeowl/internal/models"
 	"sort"
 	"strconv"
 	"strings"
@@ -14,8 +15,8 @@ import (
 )
 
 // processServiceInfo formata os dados brutos dos serviços em uma estrutura mais amigável.
-func processServiceInfo(services *v1.ServiceList, userNamespaces map[string]bool) []ServiceInfo {
-	serviceInfoList := []ServiceInfo{}
+func processServiceInfo(services *v1.ServiceList, userNamespaces map[string]bool) []models.ServiceInfo {
+	serviceInfoList := []models.ServiceInfo{}
 	if services == nil {
 		return serviceInfoList
 	}
@@ -38,7 +39,7 @@ func processServiceInfo(services *v1.ServiceList, userNamespaces map[string]bool
 			portStrings = append(portStrings, strconv.Itoa(int(port.Port)))
 		}
 
-		info := ServiceInfo{
+		info := models.ServiceInfo{
 			Name:       service.Name,
 			Namespace:  service.Namespace,
 			Type:       string(service.Spec.Type),
@@ -85,8 +86,8 @@ func getPodStatus(pod v1.Pod) (string, int32) {
 }
 
 // processIngressInfo formata os dados dos Ingresses.
-func processIngressInfo(ingresses *networkingv1.IngressList, userNamespaces map[string]bool) []IngressInfo {
-	ingressInfoList := []IngressInfo{}
+func processIngressInfo(ingresses *networkingv1.IngressList, userNamespaces map[string]bool) []models.IngressInfo {
+	ingressInfoList := []models.IngressInfo{}
 	if ingresses == nil {
 		return ingressInfoList
 	}
@@ -105,7 +106,7 @@ func processIngressInfo(ingresses *networkingv1.IngressList, userNamespaces map[
 			}
 		}
 
-		info := IngressInfo{
+		info := models.IngressInfo{
 			Name:      ingress.Name,
 			Namespace: ingress.Namespace,
 			Hosts:     strings.Join(hosts, ", "),
@@ -118,7 +119,7 @@ func processIngressInfo(ingresses *networkingv1.IngressList, userNamespaces map[
 }
 
 // processClusterCapacity calcula o uso total de CPU e memória do cluster.
-func processClusterCapacity(nodes *v1.NodeList, nodeMetrics *metricsv1beta1.NodeMetricsList) ClusterCapacityInfo {
+func processClusterCapacity(nodes *v1.NodeList, nodeMetrics *metricsv1beta1.NodeMetricsList) models.ClusterCapacityInfo {
 	var totalCPU, usedCPU, totalMemory, usedMemory int64
 
 	if nodes != nil {
@@ -143,7 +144,7 @@ func processClusterCapacity(nodes *v1.NodeList, nodeMetrics *metricsv1beta1.Node
 		memUsage = (float64(usedMemory) / float64(totalMemory)) * 100
 	}
 
-	return ClusterCapacityInfo{
+	return models.ClusterCapacityInfo{
 		TotalCPU:              totalCPU,
 		UsedCPU:               usedCPU,
 		CPUUsagePercentage:    cpuUsage,
@@ -188,8 +189,8 @@ func processNamespaces(namespaces *v1.NamespaceList) (int, map[string]bool) {
 }
 
 // processNodeInfo formata os dados dos nós do cluster, identificando o master.
-func processNodeInfo(nodes *v1.NodeList, pods *v1.PodList, nodeMetrics *metricsv1beta1.NodeMetricsList) []NodeInfo {
-	nodeInfoList := []NodeInfo{}
+func processNodeInfo(nodes *v1.NodeList, pods *v1.PodList, nodeMetrics *metricsv1beta1.NodeMetricsList) []models.NodeInfo {
+	nodeInfoList := []models.NodeInfo{}
 	if nodes == nil {
 		return nodeInfoList
 	}
@@ -220,7 +221,7 @@ func processNodeInfo(nodes *v1.NodeList, pods *v1.PodList, nodeMetrics *metricsv
 			memoryUsagePercentage = (float64(usedMemoryBytes) / float64(totalMemoryBytes)) * 100
 		}
 		
-		info := NodeInfo{
+		info := models.NodeInfo{
 			Name:                  node.Name,
 			Role:                  role,
 			PodCount:              podCount,
@@ -263,8 +264,8 @@ func countPodsOnNode(nodeName string, pods *v1.PodList) int {
 }
 
 // processPodInfo formata os dados dos pods, incluindo status detalhado e reinicializações.
-func processPodInfo(pods *v1.PodList, podMetricsList *metricsv1beta1.PodMetricsList, userNamespaces map[string]bool) []PodInfo {
-	podInfoList := []PodInfo{}
+func processPodInfo(pods *v1.PodList, podMetricsList *metricsv1beta1.PodMetricsList, userNamespaces map[string]bool) []models.PodInfo {
+	podInfoList := []models.PodInfo{}
 	if pods == nil {
 		return podInfoList
 	}
@@ -298,7 +299,7 @@ func processPodInfo(pods *v1.PodList, podMetricsList *metricsv1beta1.PodMetricsL
 			usedMemory = fmt.Sprintf("%.2f Mi", float64(usedMemoryBytes)/(1024*1024))
 		}
 
-		info := PodInfo{
+		info := models.PodInfo{
 			Name:            pod.Name,
 			Namespace:       pod.Namespace,
 			NodeName:        pod.Spec.NodeName,
@@ -315,8 +316,8 @@ func processPodInfo(pods *v1.PodList, podMetricsList *metricsv1beta1.PodMetricsL
 }
 
 // processEvents formata e ordena os eventos do cluster.
-func processEvents(events *v1.EventList, userNamespaces map[string]bool) []EventInfo {
-	eventInfoList := []EventInfo{}
+func processEvents(events *v1.EventList, userNamespaces map[string]bool) []models.EventInfo {
+	eventInfoList := []models.EventInfo{}
 	if events == nil {
 		return eventInfoList
 	}
@@ -330,7 +331,7 @@ func processEvents(events *v1.EventList, userNamespaces map[string]bool) []Event
 			continue
 		}
 
-		info := EventInfo{
+		info := models.EventInfo{
 			Timestamp: event.LastTimestamp.Format(time.RFC822),
 			Type:      event.Type,
 			Reason:    event.Reason,
@@ -346,8 +347,8 @@ func processEvents(events *v1.EventList, userNamespaces map[string]bool) []Event
 }
 
 // processPvcs formata os dados dos PVCs (PersistentVolumeClaims).
-func processPvcs(pvcs *v1.PersistentVolumeClaimList, userNamespaces map[string]bool) []PvcInfo {
-	pvcInfoList := []PvcInfo{}
+func processPvcs(pvcs *v1.PersistentVolumeClaimList, userNamespaces map[string]bool) []models.PvcInfo {
+	pvcInfoList := []models.PvcInfo{}
 	if pvcs == nil {
 		return pvcInfoList
 	}
@@ -358,7 +359,7 @@ func processPvcs(pvcs *v1.PersistentVolumeClaimList, userNamespaces map[string]b
 		}
 
 		storage := pvc.Spec.Resources.Requests[v1.ResourceStorage]
-		info := PvcInfo{
+		info := models.PvcInfo{
 			Name:      pvc.Name,
 			Namespace: pvc.Namespace,
 			Status:    string(pvc.Status.Phase),
