@@ -18,7 +18,6 @@ class KubeOwlApp {
         
         this.ws = null;
         this.domElementMap = new Map(); // Mapeia UID para elemento do DOM para atualizações rápidas
-        this.debounceTimer = null; // Para debounce de fetch
     }
 
     init() {
@@ -91,7 +90,7 @@ class KubeOwlApp {
         });
     }
 
-    async setupNamespaceSelector() {
+    setupNamespaceSelector() {
         const selector = document.getElementById('namespace-selector');
         selector.addEventListener('change', (e) => {
             this.selectedNamespace = e.target.value;
@@ -120,14 +119,17 @@ class KubeOwlApp {
     async fetchAllData() {
         const endpoints = ['overview', 'nodes', 'namespaces', 'pods', 'services', 'ingresses', 'pvcs', 'events'];
         try {
+            this.updateLastUpdated(null);
             const promises = endpoints.map(e => fetch(`/api/${e}`).then(res => res.json()));
             const [overview, nodes, namespaces, pods, services, ingresses, pvcs, events] = await Promise.all(promises);
             
             this.fullDataCache = { overview, nodes, namespaces, pods, services, ingresses, pvcs, events };
             
             this.populateNamespaceSelector();
-            this.renderAllSections(); // Renderiza tudo com os novos dados
+
+            this.renderActiveSection(); 
             this.updateLastUpdated(true);
+
         } catch (error) {
             console.error("Erro ao buscar dados iniciais:", error);
             this.updateLastUpdated(false);
@@ -193,7 +195,7 @@ class KubeOwlApp {
             // Modifica: Mantém os dados antigos (como métricas) e atualiza com os novos do WebSocket
             cache[existingIndex] = { ...cache[existingIndex], ...processedItem };
         } else {
-            cache.unshift(processedItem); // Adiciona
+            cache.unshift(processedItem);
         }
     }
 
@@ -230,10 +232,6 @@ class KubeOwlApp {
         if (renderFunction) {
             renderFunction.call(this);
         }
-    }
-
-    renderAllSections() {
-        Object.values(this).filter(v => typeof v === 'function' && v.name.startsWith('render')).forEach(fn => fn.call(this));
     }
 
     // Retorna uma fatia filtrada do cache
@@ -397,9 +395,14 @@ class KubeOwlApp {
     }
     
     updateLastUpdated(isSuccess) {
-        document.getElementById('last-updated').innerText = isSuccess
-            ? `Atualizado: ${new Date().toLocaleTimeString()}`
-            : "Erro ao carregar dados.";
+        const span = document.getElementById('last-updated');
+        if (isSuccess === null) {
+            span.innerText = "Carregando...";
+        } else {
+            span.innerText = isSuccess
+                ? `Atualizado: ${new Date().toLocaleTimeString()}`
+                : "Erro ao carregar dados.";
+        }
     }
 
     flashUpdateIndicator() {

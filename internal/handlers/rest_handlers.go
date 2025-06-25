@@ -6,6 +6,7 @@ import (
 	"net/http"
 )
 
+// OverviewHandler busca os dados da visão geral.
 func (r *Router) OverviewHandler(w http.ResponseWriter, req *http.Request) {
 	data, err := r.Service.GetOverviewData(req.Context())
 	if err != nil {
@@ -15,6 +16,7 @@ func (r *Router) OverviewHandler(w http.ResponseWriter, req *http.Request) {
 	jsonResponse(w, data, http.StatusOK)
 }
 
+// NodesHandler busca os dados dos nós.
 func (r *Router) NodesHandler(w http.ResponseWriter, req *http.Request) {
 	data, err := r.Service.GetNodeInfo(req.Context())
 	if err != nil {
@@ -24,6 +26,7 @@ func (r *Router) NodesHandler(w http.ResponseWriter, req *http.Request) {
 	jsonResponse(w, data, http.StatusOK)
 }
 
+// PodsHandler busca os dados dos pods.
 func (r *Router) PodsHandler(w http.ResponseWriter, req *http.Request) {
 	data, err := r.Service.GetPodInfo(req.Context())
 	if err != nil {
@@ -33,6 +36,7 @@ func (r *Router) PodsHandler(w http.ResponseWriter, req *http.Request) {
 	jsonResponse(w, data, http.StatusOK)
 }
 
+// ServicesHandler busca os dados dos services.
 func (r *Router) ServicesHandler(w http.ResponseWriter, req *http.Request) {
 	data, err := r.Service.GetServiceInfo(req.Context())
 	if err != nil {
@@ -42,6 +46,7 @@ func (r *Router) ServicesHandler(w http.ResponseWriter, req *http.Request) {
 	jsonResponse(w, data, http.StatusOK)
 }
 
+// IngressesHandler busca os dados dos ingresses.
 func (r *Router) IngressesHandler(w http.ResponseWriter, req *http.Request) {
 	data, err := r.Service.GetIngressInfo(req.Context())
 	if err != nil {
@@ -51,6 +56,7 @@ func (r *Router) IngressesHandler(w http.ResponseWriter, req *http.Request) {
 	jsonResponse(w, data, http.StatusOK)
 }
 
+// PvcsHandler busca os dados dos PVCs.
 func (r *Router) PvcsHandler(w http.ResponseWriter, req *http.Request) {
 	data, err := r.Service.GetPvcInfo(req.Context())
 	if err != nil {
@@ -60,6 +66,7 @@ func (r *Router) PvcsHandler(w http.ResponseWriter, req *http.Request) {
 	jsonResponse(w, data, http.StatusOK)
 }
 
+// EventsHandler busca os dados dos eventos.
 func (r *Router) EventsHandler(w http.ResponseWriter, req *http.Request) {
 	data, err := r.Service.GetEventInfo(req.Context())
 	if err != nil {
@@ -69,6 +76,7 @@ func (r *Router) EventsHandler(w http.ResponseWriter, req *http.Request) {
 	jsonResponse(w, data, http.StatusOK)
 }
 
+// NamespacesHandler busca os dados dos namespaces.
 func (r *Router) NamespacesHandler(w http.ResponseWriter, req *http.Request) {
 	data, err := r.Service.GetNamespaces(req.Context())
 	if err != nil {

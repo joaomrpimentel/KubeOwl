@@ -80,6 +80,13 @@ func (m *MockService) GetEventInfo(ctx context.Context) ([]models.EventInfo, err
 	}
 	return args.Get(0).([]models.EventInfo), args.Error(1)
 }
+func (m *MockService) GetNamespaces(ctx context.Context) ([]models.NamespaceInfo, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]models.NamespaceInfo), args.Error(1)
+}
 
 // TestHandlers_Success utiliza uma tabela de testes para validar todos os cenários de sucesso.
 func TestHandlers_Success(t *testing.T) {
@@ -87,11 +94,10 @@ func TestHandlers_Success(t *testing.T) {
 	router := NewRouter(nil, mockService) // Hub não é necessário para testes REST
 
 	testCases := []struct {
-		name         string
-		handler      http.HandlerFunc
-		mockSetup    func()
-		expectedCode int
-		path         string
+		name      string
+		handler   http.HandlerFunc
+		mockSetup func()
+		path      string
 	}{
 		{
 			name:    "OverviewHandler Success",
@@ -148,6 +154,14 @@ func TestHandlers_Success(t *testing.T) {
 				mockService.On("GetEventInfo", mock.Anything).Return([]models.EventInfo{{Reason: "Scheduled"}}, nil).Once()
 			},
 			path: "/api/events",
+		},
+		{
+			name:    "NamespacesHandler Success",
+			handler: router.NamespacesHandler,
+			mockSetup: func() {
+				mockService.On("GetNamespaces", mock.Anything).Return([]models.NamespaceInfo{{Name: "ns-1"}}, nil).Once()
+			},
+			path: "/api/namespaces",
 		},
 	}
 
