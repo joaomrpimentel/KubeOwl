@@ -3,11 +3,12 @@ package services
 import (
 	"context"
 	"kubeowl/internal/models"
+
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	versioned "k8s.io/metrics/pkg/client/clientset/versioned"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Service define a interface para interagir com o cluster.
@@ -19,6 +20,7 @@ type Service interface {
 	GetIngressInfo(ctx context.Context) ([]models.IngressInfo, error)
 	GetPvcInfo(ctx context.Context) ([]models.PvcInfo, error)
 	GetEventInfo(ctx context.Context) ([]models.EventInfo, error)
+	GetNamespaces(ctx context.Context) ([]models.NamespaceInfo, error)
 }
 
 // k8sService é a implementação concreta da interface Service.
@@ -33,6 +35,16 @@ func NewK8sService(clientset kubernetes.Interface, metricsClientset versioned.In
 		clientset:        clientset,
 		metricsClientset: metricsClientset,
 	}
+}
+
+// getNamespacesAndUserMap é uma função helper para evitar repetição de código.
+func (s *k8sService) getNamespacesAndUserMap(ctx context.Context) (*v1.NamespaceList, map[string]bool, error) {
+	namespaces, err := s.clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, nil, err
+	}
+	_, userNamespaces := processNamespaces(namespaces)
+	return namespaces, userNamespaces, nil
 }
 
 // GetOverviewData coleta e processa os dados para a visão geral.
@@ -82,12 +94,11 @@ func (s *k8sService) GetPodInfo(ctx context.Context) ([]models.PodInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	podMetrics, _ := s.metricsClientset.MetricsV1beta1().PodMetricses("").List(ctx, metav1.ListOptions{})
-	namespaces, err := s.clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	_, userNamespaces, err := s.getNamespacesAndUserMap(ctx)
 	if err != nil {
 		return nil, err
 	}
-	_, userNamespaces := processNamespaces(namespaces)
+	podMetrics, _ := s.metricsClientset.MetricsV1beta1().PodMetricses("").List(ctx, metav1.ListOptions{})
 	return processPodInfo(pods, podMetrics, userNamespaces), nil
 }
 
@@ -97,11 +108,10 @@ func (s *k8sService) GetServiceInfo(ctx context.Context) ([]models.ServiceInfo, 
 	if err != nil {
 		return nil, err
 	}
-	namespaces, err := s.clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	_, userNamespaces, err := s.getNamespacesAndUserMap(ctx)
 	if err != nil {
 		return nil, err
 	}
-	_, userNamespaces := processNamespaces(namespaces)
 	return processServiceInfo(services, userNamespaces), nil
 }
 
@@ -111,11 +121,10 @@ func (s *k8sService) GetIngressInfo(ctx context.Context) ([]models.IngressInfo, 
 	if err != nil {
 		return nil, err
 	}
-	namespaces, err := s.clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	_, userNamespaces, err := s.getNamespacesAndUserMap(ctx)
 	if err != nil {
 		return nil, err
 	}
-	_, userNamespaces := processNamespaces(namespaces)
 	return processIngressInfo(ingresses, userNamespaces), nil
 }
 
@@ -125,11 +134,10 @@ func (s *k8sService) GetPvcInfo(ctx context.Context) ([]models.PvcInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	namespaces, err := s.clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	_, userNamespaces, err := s.getNamespacesAndUserMap(ctx)
 	if err != nil {
 		return nil, err
 	}
-	_, userNamespaces := processNamespaces(namespaces)
 	return processPvcs(pvcs, userNamespaces), nil
 }
 
@@ -139,10 +147,18 @@ func (s *k8sService) GetEventInfo(ctx context.Context) ([]models.EventInfo, erro
 	if err != nil {
 		return nil, err
 	}
-	namespaces, err := s.clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	_, userNamespaces, err := s.getNamespacesAndUserMap(ctx)
 	if err != nil {
 		return nil, err
 	}
-	_, userNamespaces := processNamespaces(namespaces)
 	return processEvents(events, userNamespaces), nil
+}
+
+// GetNamespaces retorna a lista de namespaces do usuário.
+func (s *k8sService) GetNamespaces(ctx context.Context) ([]models.NamespaceInfo, error) {
+	namespaces, _, err := s.getNamespacesAndUserMap(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return processNamespacesForSelector(namespaces), nil
 }

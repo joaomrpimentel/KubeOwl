@@ -30,6 +30,7 @@ func (r *Router) RegisterRoutes() {
 	http.HandleFunc("/api/ingresses", r.IngressesHandler)
 	http.HandleFunc("/api/pvcs", r.PvcsHandler)
 	http.HandleFunc("/api/events", r.EventsHandler)
+	http.HandleFunc("/api/namespaces", r.NamespacesHandler)
 
 	// Handler do WebSocket
 	http.HandleFunc("/ws", r.ServeWs)

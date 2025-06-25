@@ -69,6 +69,15 @@ func (r *Router) EventsHandler(w http.ResponseWriter, req *http.Request) {
 	jsonResponse(w, data, http.StatusOK)
 }
 
+func (r *Router) NamespacesHandler(w http.ResponseWriter, req *http.Request) {
+	data, err := r.Service.GetNamespaces(req.Context())
+	if err != nil {
+		jsonErrorResponse(w, "Falha ao buscar dados dos namespaces", http.StatusInternalServerError)
+		return
+	}
+	jsonResponse(w, data, http.StatusOK)
+}
+
 // --- Funções Utilitárias de Resposta ---
 
 func jsonResponse(w http.ResponseWriter, data interface{}, statusCode int) {

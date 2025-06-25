@@ -4,16 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KubeOwl Dashboard</title>
-    <!-- Font Awesome para os ícones -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Nossa folha de estilos personalizada -->
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 
-    <!-- Container Principal -->
     <div class="container-principal">
-        <!-- Barra Lateral de Navegação -->
         <aside class="sidebar">
             <div class="sidebar-header">
                 <i class="fas fa-eye"></i>
@@ -23,7 +19,7 @@
                  <a href="#dashboard" class="nav-link active"><i class="fas fa-chart-line"></i>Dashboard</a>
                  <a href="#nodes" class="nav-link"><i class="fas fa-server"></i>Nós</a>
                  <a href="#pods" class="nav-link"><i class="fas fa-cube"></i>Pods</a>
-                 <a href="#services" class="nav-link"><i class="fas fa-network-wired"></i>Services</a> 
+                 <a href="#services" class="nav-link"><i class="fas fa-network-wired"></i>Services</a>
                  <a href="#ingresses" class="nav-link"><i class="fas fa-route"></i>Ingresses</a>
                  <a href="#storage" class="nav-link"><i class="fas fa-database"></i>Armazenamento</a>
                  <a href="#events" class="nav-link"><i class="fas fa-bell"></i>Eventos</a>
@@ -40,13 +36,20 @@
             </div>
         </aside>
 
-        <!-- Conteúdo Principal -->
         <main class="main-content">
+
+            <header class="main-header">
+                <h2 id="section-title">Visão Geral do Cluster</h2>
+                <div class="namespace-selector-container">
+                    <label for="namespace-selector">Namespace:</label>
+                    <select id="namespace-selector">
+                        <option value="">Todos</option>
+                    </select>
+                </div>
+            </header>
             
             <section id="dashboard-section" class="main-section">
-                <header>
-                    <h2>Visão Geral do Cluster</h2>
-                </header>
+                
                 <div class="grid grid-cols-3">
                     <div class="card"><h3>NÓS</h3><p id="nodes-count">-</p></div>
                     <div class="card"><h3>DEPLOYMENTS</h3><p id="deployments-count">-</p></div>
@@ -54,7 +57,6 @@
                 </div>
 
                 <div class="grid grid-cols-2">
-                    <!-- Uso de CPU -->
                     <div class="card">
                         <h3>Uso de CPU do Cluster</h3>
                         <div class="progress-bar-bg">
@@ -65,7 +67,6 @@
                             <span id="cpu-usage-percentage">0%</span>
                         </div>
                     </div>
-                    <!-- Uso de Memória -->
                     <div class="card">
                         <h3>Uso de Memória do Cluster</h3>
                         <div class="progress-bar-bg">
@@ -80,12 +81,10 @@
             </section>
 
             <section id="nodes-section" class="main-section hidden">
-                 <h2>Nós do Cluster</h2>
                  <div id="nodes-list" class="grid grid-cols-3"></div>
             </section>
 
              <section id="pods-section" class="main-section hidden">
-                 <h2>Pods</h2>
                  <div class="card">
                     <div class="table-container">
                          <table>
@@ -97,7 +96,6 @@
             </section>
 
             <section id="services-section" class="main-section hidden">
-                <h2>Services</h2>
                 <div class="card">
                    <div class="table-container">
                       <table>
@@ -116,7 +114,6 @@
            </section>
 
             <section id="ingresses-section" class="main-section hidden">
-                <h2>Acessos Externos (Ingresses)</h2>
                 <div class="card">
                     <div class="table-container">
                        <table>
@@ -130,7 +127,6 @@
            </section>
             
              <section id="storage-section" class="main-section hidden">
-                 <h2>Armazenamento (PVCs)</h2>
                  <div class="card">
                      <div class="table-container">
                         <table>
@@ -144,7 +140,6 @@
             </section>
 
             <section id="events-section" class="main-section hidden">
-                <h2>Eventos Recentes do Cluster</h2>
                 <div id="events-list" class="events-container"></div>
             </section>
         </main>

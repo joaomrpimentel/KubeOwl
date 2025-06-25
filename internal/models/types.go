@@ -42,6 +42,7 @@ type NodeInfo struct {
 
 // PodInfo contém informações sobre um pod.
 type PodInfo struct {
+	Uid             string `json:"uid"`
 	Name            string `json:"name"`
 	Namespace       string `json:"namespace"`
 	NodeName        string `json:"nodeName"`
@@ -60,6 +61,7 @@ type EventInfo struct {
 	Reason    string `json:"reason"`
 	Object    string `json:"object"`
 	Message   string `json:"message"`
+	Namespace string `json:"namespace"`
 }
 
 // PvcInfo contém informações sobre um PersistentVolumeClaim.
@@ -84,4 +86,9 @@ type ClusterCapacityInfo struct {
 type WSMessage struct {
 	Type    string      `json:"type"`
 	Payload interface{} `json:"payload"`
+}
+
+// NamespaceInfo contém o nome de um namespace.
+type NamespaceInfo struct {
+	Name string `json:"name"`
 }
