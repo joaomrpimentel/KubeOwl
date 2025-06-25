@@ -17,7 +17,7 @@ class KubeOwlApp {
         };
         
         this.ws = null;
-        this.domElementMap = new Map(); // Mapeia UID para elemento do DOM para atualizações rápidas
+        this.isMetricsFetching = false; // Flag para evitar sobreposição de fetch
     }
 
     init() {
@@ -27,7 +27,6 @@ class KubeOwlApp {
         this.loadData(); // Orquestra o carregamento de dados em estágios
         this.setupWebSocket();
         
-        // Atualiza apenas as métricas de nós e pods (que não vêm via watch) periodicamente
         setInterval(() => this.fetchMetrics(), 30000);
     }
     
@@ -88,7 +87,7 @@ class KubeOwlApp {
                 const isDataSection = ['pods', 'services', 'ingresses', 'storage', 'events'].includes(this.activeSection);
                 namespaceSelectorContainer.style.display = isDataSection ? 'flex' : 'none';
 
-                this.renderActiveSection(); // Renderiza apenas a seção ativa
+                this.renderActiveSection();
             });
         });
     }
@@ -97,7 +96,7 @@ class KubeOwlApp {
         const selector = document.getElementById('namespace-selector');
         selector.addEventListener('change', (e) => {
             this.selectedNamespace = e.target.value;
-            this.renderActiveSection(); // Apenas re-renderiza com os dados do cache, sem fetch
+            this.renderActiveSection();
         });
     }
 
@@ -119,21 +118,19 @@ class KubeOwlApp {
 
     // --- Funções de Busca de Dados (Otimizadas) ---
 
-    // Orquestra o carregamento de dados em duas fases
     async loadData() {
         try {
-            await this.fetchInitialData(); // Fase 1: Dados essenciais e rápidos
-            this.fetchSecondaryData();   // Fase 2: Dados pesados em segundo plano
+            await this.fetchInitialData();
+            this.fetchSecondaryData();
         } catch (error) {
             console.error("Falha no carregamento inicial, o carregamento secundário foi cancelado.", error);
         }
     }
     
-    // Fase 1: Busca dados essenciais para uma renderização inicial rápida.
     async fetchInitialData() {
         const endpoints = ['overview', 'nodes', 'namespaces'];
         try {
-            this.updateLastUpdated(null); // Indica que o carregamento está em andamento
+            this.updateLastUpdated(null);
             const [overview, nodes, namespaces] = await Promise.all(
                 endpoints.map(e => fetch(`/api/${e}`).then(res => res.json()))
             );
@@ -147,11 +144,10 @@ class KubeOwlApp {
             
         } catch (error) {
             this.updateLastUpdated(false);
-            throw error; 
+            throw error;
         }
     }
 
-    // Fase 2: Busca os dados mais pesados em segundo plano.
     async fetchSecondaryData() {
         const endpoints = ['pods', 'services', 'ingresses', 'pvcs', 'events'];
         try {
@@ -166,6 +162,8 @@ class KubeOwlApp {
             this.fullDataCache.events = events;
 
             this.updateLastUpdated(true);
+            
+            this.renderActiveSection();
 
         } catch (error) {
             console.error("Erro ao buscar dados secundários:", error);
@@ -173,8 +171,10 @@ class KubeOwlApp {
         }
     }
     
-    // Busca apenas métricas, que são mais voláteis
     async fetchMetrics() {
+        if (this.isMetricsFetching) return;
+        this.isMetricsFetching = true;
+
         try {
             const [nodes, pods] = await Promise.all([
                 fetch('/api/nodes').then(res => res.json()),
@@ -188,6 +188,8 @@ class KubeOwlApp {
             if (this.activeSection === 'pods') this.renderPodTable();
         } catch (error) {
             console.error("Erro ao buscar métricas:", error);
+        } finally {
+            this.isMetricsFetching = false;
         }
     }
     
@@ -196,7 +198,7 @@ class KubeOwlApp {
     handleWebSocketMessage(message) {
         const { type, payload } = message;
         const resource = payload.object;
-        const eventType = payload.type; // ADDED, MODIFIED, DELETED
+        const eventType = payload.type;
 
         this.flashUpdateIndicator();
 
@@ -246,12 +248,11 @@ class KubeOwlApp {
             };
         }
         if (type === 'events') return this.processEventInfo(resource);
-
         return resource;
     }
     
-    // --- Funções de Renderização (usando cache) ---
-    
+    // --- Funções de Renderização Segura ---
+
     renderActiveSection() {
         const renderMap = {
             dashboard: this.renderOverview,
@@ -281,9 +282,9 @@ class KubeOwlApp {
         document.getElementById('running-status').innerHTML = data.isRunningInCluster 
             ? `<span style="color: var(--green-500);">In-Cluster</span>` 
             : `<span style="color: var(--yellow-500);">Local</span>`;
-        document.getElementById('nodes-count').innerText = data.nodeCount || 0;
-        document.getElementById('deployments-count').innerText = data.deploymentCount || 0;
-        document.getElementById('namespaces-count').innerText = data.namespaceCount || 0;
+        document.getElementById('nodes-count').textContent = data.nodeCount || 0;
+        document.getElementById('deployments-count').textContent = data.deploymentCount || 0;
+        document.getElementById('namespaces-count').textContent = data.namespaceCount || 0;
         this.renderCapacityView(data.capacity);
     }
 
@@ -293,31 +294,46 @@ class KubeOwlApp {
         const toCores = (milli) => (milli / 1000).toFixed(2);
         
         document.getElementById('cpu-progress-bar').style.width = `${capacity.cpuUsagePercentage.toFixed(2)}%`;
-        document.getElementById('cpu-usage-text').innerText = `${toCores(capacity.usedCpu)} / ${toCores(capacity.totalCpu)} Cores`;
-        document.getElementById('cpu-usage-percentage').innerText = `${capacity.cpuUsagePercentage.toFixed(2)}%`;
+        document.getElementById('cpu-usage-text').textContent = `${toCores(capacity.usedCpu)} / ${toCores(capacity.totalCpu)} Cores`;
+        document.getElementById('cpu-usage-percentage').textContent = `${capacity.cpuUsagePercentage.toFixed(2)}%`;
         
         document.getElementById('memory-progress-bar').style.width = `${capacity.memoryUsagePercentage.toFixed(2)}%`;
-        document.getElementById('memory-usage-text').innerText = `${toGiB(capacity.usedMemory)} / ${toGiB(capacity.totalMemory)} GiB`;
-        document.getElementById('memory-usage-percentage').innerText = `${capacity.memoryUsagePercentage.toFixed(2)}%`;
+        document.getElementById('memory-usage-text').textContent = `${toGiB(capacity.usedMemory)} / ${toGiB(capacity.totalMemory)} GiB`;
+        document.getElementById('memory-usage-percentage').textContent = `${capacity.memoryUsagePercentage.toFixed(2)}%`;
     }
 
     renderNodeList() {
         const nodes = this.fullDataCache.nodes || [];
         const container = document.getElementById('nodes-list');
-        container.innerHTML = nodes.map(node => `
-            <div class="card node-card">
-                <div class="node-header"><h4>${node.name}</h4>${node.role === 'Control-Plane' ? '<span class="node-role">MASTER</span>' : ''}</div>
+        container.innerHTML = ''; // Limpa antes de adicionar
+        if (nodes.length === 0) {
+            container.innerHTML = '<p>Nenhum nó encontrado.</p>';
+            return;
+        }
+        nodes.forEach(node => {
+            const card = document.createElement('div');
+            card.className = 'card node-card';
+            card.innerHTML = `
+                <div class="node-header">
+                    <h4></h4>
+                    ${node.role === 'Control-Plane' ? '<span class="node-role">MASTER</span>' : ''}
+                </div>
                 <div>
-                    <div class="node-metric-label"><span>CPU</span><span style="font-family: monospace;">${node.usedCpu} / ${node.totalCpu}</span></div>
+                    <div class="node-metric-label"><span>CPU</span><span class="monospace"></span></div>
                     <div class="progress-bar-bg"><div class="progress-bar bg-blue" style="width: ${node.cpuUsagePercentage.toFixed(2)}%"></div></div>
                 </div>
                 <div>
-                    <div class="node-metric-label"><span>Memória</span><span style="font-family: monospace;">${node.usedMemory} / ${node.totalMemory}</span></div>
+                    <div class="node-metric-label"><span>Memória</span><span class="monospace"></span></div>
                     <div class="progress-bar-bg"><div class="progress-bar bg-green" style="width: ${node.memoryUsagePercentage.toFixed(2)}%"></div></div>
                 </div>
-                <div class="node-pods-count"><span>Pods</span><span class="count">${node.podCount}</span></div>
-            </div>
-        `).join('') || '<p>Nenhum nó encontrado.</p>';
+                <div class="node-pods-count"><span>Pods</span><span class="count"></span></div>`;
+            card.querySelector('h4').textContent = node.name;
+            const metrics = card.querySelectorAll('.monospace');
+            metrics[0].textContent = `${node.usedCpu} / ${node.totalCpu}`;
+            metrics[1].textContent = `${node.usedMemory} / ${node.totalMemory}`;
+            card.querySelector('.count').textContent = node.podCount;
+            container.appendChild(card);
+        });
     }
 
     renderPodTable() {
@@ -330,60 +346,140 @@ class KubeOwlApp {
         ], () => this.renderPodTable());
 
         this.sortData(pods);
-        tableBody.innerHTML = pods.map(pod => `
-            <tr>
-                <td><div><b>${pod.name}</b></div><div class="text-gray">${pod.namespace}</div></td>
-                <td class="monospace">${pod.nodeName || 'N/A'}</td>
-                <td><span class="status-badge ${this.getPodStatusClass(pod.status)}">${pod.status || 'Unknown'}</span></td>
-                <td class="monospace text-center">${pod.restarts}</td>
-                <td class="monospace">${pod.usedCpu || '-'}</td>
-                <td class="monospace">${pod.usedMemory || '-'}</td>
-            </tr>
-        `).join('') || `<tr><td colspan="6" class="text-center-padded">Nenhum pod encontrado.</td></tr>`;
+        tableBody.innerHTML = ''; // Limpa
+        if (pods.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="6" class="text-center-padded">Nenhum pod encontrado.</td></tr>`;
+            return;
+        }
+        pods.forEach(pod => {
+            const row = tableBody.insertRow();
+            row.insertCell().innerHTML = `<div><b>${this.escapeHTML(pod.name)}</b></div><div class="text-gray">${this.escapeHTML(pod.namespace)}</div>`;
+            row.insertCell().textContent = pod.nodeName || 'N/A';
+            row.cells[1].className = 'monospace';
+            row.insertCell().innerHTML = `<span class="status-badge ${this.getPodStatusClass(pod.status)}">${this.escapeHTML(pod.status) || 'Unknown'}</span>`;
+            row.insertCell().textContent = pod.restarts;
+            row.cells[3].className = 'monospace text-center';
+            row.insertCell().textContent = pod.usedCpu || '-';
+            row.cells[4].className = 'monospace';
+            row.insertCell().textContent = pod.usedMemory || '-';
+            row.cells[5].className = 'monospace';
+        });
     }
     
     renderServicesView() {
         const services = this.getFilteredData('services');
         const tableBody = document.getElementById('services-table-body');
-        tableBody.innerHTML = services.map(s => `
-            <tr>
-                <td>${s.namespace}</td><td><b>${s.name}</b></td><td class="monospace">${s.type}</td>
-                <td class="monospace">${s.clusterIp || 'N/A'}</td><td class="monospace">${s.externalIp || 'N/A'}</td><td class="monospace">${s.ports}</td>
-            </tr>
-        `).join('') || `<tr><td colspan="6" class="text-center-padded">Nenhum serviço encontrado.</td></tr>`;
+        tableBody.innerHTML = ''; // Limpa
+        if (services.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="6" class="text-center-padded">Nenhum serviço encontrado.</td></tr>`;
+            return;
+        }
+        services.forEach(service => {
+            const row = tableBody.insertRow();
+            row.insertCell().textContent = service.namespace;
+            row.insertCell().innerHTML = `<b>${this.escapeHTML(service.name)}</b>`;
+            row.insertCell().textContent = service.type;
+            row.cells[2].className = 'monospace';
+            row.insertCell().textContent = service.clusterIp || 'N/A';
+            row.cells[3].className = 'monospace';
+            row.insertCell().textContent = service.externalIp || 'N/A';
+            row.cells[4].className = 'monospace';
+            row.insertCell().textContent = service.ports;
+            row.cells[5].className = 'monospace';
+        });
     }
 
     renderIngressesView() {
         const ingresses = this.getFilteredData('ingresses');
         const tableBody = document.getElementById('ingresses-table-body');
-        tableBody.innerHTML = ingresses.map(i => `
-            <tr>
-                <td>${i.namespace}</td><td><b>${i.name}</b></td>
-                <td class="monospace"><a href="http://${i.hosts.split(',')[0]}" target="_blank" class="link-blue">${i.hosts}</a></td>
-                <td class="monospace">${i.service}</td>
-            </tr>
-        `).join('') || `<tr><td colspan="4" class="text-center-padded">Nenhum ingress encontrado.</td></tr>`;
+        tableBody.innerHTML = ''; // Limpa
+        if (ingresses.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="4" class="text-center-padded">Nenhum ingress encontrado.</td></tr>`;
+            return;
+        }
+        ingresses.forEach(ingress => {
+            const row = tableBody.insertRow();
+            row.insertCell().textContent = ingress.namespace;
+            row.insertCell().innerHTML = `<b>${this.escapeHTML(ingress.name)}</b>`;
+            const hostCell = row.insertCell();
+            const hostLink = document.createElement('a');
+            hostLink.href = `http://${ingress.hosts.split(',')[0]}`;
+            hostLink.target = '_blank';
+            hostLink.className = 'link-blue monospace';
+            hostLink.textContent = ingress.hosts;
+            hostCell.appendChild(hostLink);
+            row.insertCell().textContent = ingress.service;
+            row.cells[3].className = 'monospace';
+        });
     }
 
     renderStorageView() {
         const pvcs = this.getFilteredData('pvcs');
         const tableBody = document.getElementById('pvcs-table-body');
-        tableBody.innerHTML = pvcs.map(pvc => `
-            <tr>
-                <td>${pvc.namespace}</td><td><b>${pvc.name}</b></td>
-                <td><span class="status-badge ${pvc.status === 'Bound' ? 'status-bound' : 'status-pending'}">${pvc.status}</span></td>
-                <td class="monospace">${pvc.capacity}</td>
-            </tr>
-        `).join('') || `<tr><td colspan="4" class="text-center-padded">Nenhum PVC encontrado.</td></tr>`;
+        tableBody.innerHTML = ''; // Limpa
+        if (pvcs.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="4" class="text-center-padded">Nenhum PVC encontrado.</td></tr>`;
+            return;
+        }
+        pvcs.forEach(pvc => {
+            const row = tableBody.insertRow();
+            row.insertCell().textContent = pvc.namespace;
+            row.insertCell().innerHTML = `<b>${this.escapeHTML(pvc.name)}</b>`;
+            row.insertCell().innerHTML = `<span class="status-badge ${pvc.status === 'Bound' ? 'status-bound' : 'status-pending'}">${this.escapeHTML(pvc.status)}</span>`;
+            row.insertCell().textContent = pvc.capacity;
+            row.cells[3].className = 'monospace';
+        });
     }
-
+    
     renderEventFeed() {
         const events = this.getFilteredData('events');
         const eventsList = document.getElementById('events-list');
-        eventsList.innerHTML = events.slice(0, 50).map(event => this.createEventCardHTML(event)).join('') || '<p>Nenhum evento recente.</p>';
+        eventsList.innerHTML = ''; // Limpa
+        if (events.length === 0) {
+            eventsList.innerHTML = '<p>Nenhum evento recente.</p>';
+            return;
+        }
+        events.slice(0, 50).forEach(event => {
+            const card = this.createEventCard(event);
+            eventsList.appendChild(card);
+        });
+    }
+
+    createEventCard(event) {
+        const card = document.createElement('div');
+        card.className = 'card event-card';
+        const eventTypeBorders = { 'Normal': 'var(--blue-500)', 'Warning': 'var(--yellow-500)' };
+        card.style.borderLeftColor = eventTypeBorders[event.type] || 'var(--gray-500)';
+
+        const header = document.createElement('div');
+        header.className = 'event-header';
+        const reason = document.createElement('b');
+        reason.textContent = event.reason;
+        const timestamp = document.createElement('span');
+        timestamp.textContent = new Date(event.timestamp).toLocaleString();
+        header.appendChild(reason);
+        header.appendChild(timestamp);
+
+        const messageP = document.createElement('p');
+        messageP.className = 'event-message';
+        const objectB = document.createElement('b');
+        objectB.textContent = `${event.object}: `;
+        messageP.appendChild(objectB);
+        messageP.append(document.createTextNode(event.message));
+
+        card.appendChild(header);
+        card.appendChild(messageP);
+        return card;
     }
 
     // --- Funções Utilitárias ---
+    
+    escapeHTML(str) {
+        if (!str) return '';
+        const p = document.createElement('p');
+        p.appendChild(document.createTextNode(str));
+        return p.innerHTML;
+    }
 
     populateNamespaceSelector() {
         const selector = document.getElementById('namespace-selector');
@@ -451,15 +547,6 @@ class KubeOwlApp {
         if (s.includes('pending') || s.includes('creating')) return 'status-pending';
         if (s.includes('failed') || s.includes('error') || s.includes('crash')) return 'status-failed';
         return 'status-unknown';
-    }
-
-    createEventCardHTML(event) {
-        const eventTypeBorders = { 'Normal': 'var(--blue-500)', 'Warning': 'var(--yellow-500)' };
-        return `
-            <div class="card event-card" style="border-left-color: ${eventTypeBorders[event.type] || 'var(--gray-500)'}">
-                <div class="event-header"><b>${event.reason}</b><span>${new Date(event.timestamp).toLocaleString()}</span></div>
-                <p class="event-message"><b>${event.object}:</b> ${event.message}</p>
-            </div>`;
     }
     
     processEventInfo(event) {
