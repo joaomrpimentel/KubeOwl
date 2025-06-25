@@ -24,7 +24,7 @@ class KubeOwlApp {
         this.setupTheme();
         this.setupNavigation();
         this.setupNamespaceSelector();
-        this.fetchAllData(); // Busca todos os dados na inicialização
+        this.loadData(); // Orquestra o carregamento de dados em estágios
         this.setupWebSocket();
         
         // Atualiza apenas as métricas de nós e pods (que não vêm via watch) periodicamente
@@ -66,6 +66,9 @@ class KubeOwlApp {
         const sections = document.querySelectorAll('.main-section');
         const sectionTitle = document.getElementById('section-title');
         const namespaceSelectorContainer = document.querySelector('.namespace-selector-container');
+
+        const initialIsDataSection = ['pods', 'services', 'ingresses', 'storage', 'events'].includes(this.activeSection);
+        namespaceSelectorContainer.style.display = initialIsDataSection ? 'flex' : 'none';
 
         navLinks.forEach(link => {
             link.addEventListener('click', (e) => {
@@ -116,22 +119,56 @@ class KubeOwlApp {
 
     // --- Funções de Busca de Dados (Otimizadas) ---
 
-    async fetchAllData() {
-        const endpoints = ['overview', 'nodes', 'namespaces', 'pods', 'services', 'ingresses', 'pvcs', 'events'];
+    // Orquestra o carregamento de dados em duas fases
+    async loadData() {
         try {
-            this.updateLastUpdated(null);
-            const promises = endpoints.map(e => fetch(`/api/${e}`).then(res => res.json()));
-            const [overview, nodes, namespaces, pods, services, ingresses, pvcs, events] = await Promise.all(promises);
+            await this.fetchInitialData(); // Fase 1: Dados essenciais e rápidos
+            this.fetchSecondaryData();   // Fase 2: Dados pesados em segundo plano
+        } catch (error) {
+            console.error("Falha no carregamento inicial, o carregamento secundário foi cancelado.", error);
+        }
+    }
+    
+    // Fase 1: Busca dados essenciais para uma renderização inicial rápida.
+    async fetchInitialData() {
+        const endpoints = ['overview', 'nodes', 'namespaces'];
+        try {
+            this.updateLastUpdated(null); // Indica que o carregamento está em andamento
+            const [overview, nodes, namespaces] = await Promise.all(
+                endpoints.map(e => fetch(`/api/${e}`).then(res => res.json()))
+            );
             
-            this.fullDataCache = { overview, nodes, namespaces, pods, services, ingresses, pvcs, events };
+            this.fullDataCache.overview = overview;
+            this.fullDataCache.nodes = nodes;
+            this.fullDataCache.namespaces = namespaces;
             
             this.populateNamespaceSelector();
+            this.renderActiveSection();
+            
+        } catch (error) {
+            this.updateLastUpdated(false);
+            throw error; 
+        }
+    }
 
-            this.renderActiveSection(); 
+    // Fase 2: Busca os dados mais pesados em segundo plano.
+    async fetchSecondaryData() {
+        const endpoints = ['pods', 'services', 'ingresses', 'pvcs', 'events'];
+        try {
+            const [pods, services, ingresses, pvcs, events] = await Promise.all(
+                endpoints.map(e => fetch(`/api/${e}`).then(res => res.json()))
+            );
+            
+            this.fullDataCache.pods = pods;
+            this.fullDataCache.services = services;
+            this.fullDataCache.ingresses = ingresses;
+            this.fullDataCache.pvcs = pvcs;
+            this.fullDataCache.events = events;
+
             this.updateLastUpdated(true);
 
         } catch (error) {
-            console.error("Erro ao buscar dados iniciais:", error);
+            console.error("Erro ao buscar dados secundários:", error);
             this.updateLastUpdated(false);
         }
     }
@@ -144,11 +181,9 @@ class KubeOwlApp {
                 fetch('/api/pods').then(res => res.json())
             ]);
 
-            // Atualiza o cache de nós e pods com as novas métricas
             this.fullDataCache.nodes = nodes;
             this.fullDataCache.pods = pods;
             
-            // Re-renderiza as seções afetadas se estiverem visíveis
             if (this.activeSection === 'nodes') this.renderNodeList();
             if (this.activeSection === 'pods') this.renderPodTable();
         } catch (error) {
@@ -175,7 +210,6 @@ class KubeOwlApp {
         const idKey = resource.metadata.uid;
         this.updateCache(cacheKey, resource, eventType, idKey);
         
-        // Se a seção do recurso atualizado estiver ativa, re-renderiza
         if (this.activeSection === cacheKey) {
             this.renderActiveSection();
         }
@@ -192,7 +226,6 @@ class KubeOwlApp {
 
         const processedItem = this.processRawResource(resource, cacheKey);
         if (existingIndex > -1) {
-            // Modifica: Mantém os dados antigos (como métricas) e atualiza com os novos do WebSocket
             cache[existingIndex] = { ...cache[existingIndex], ...processedItem };
         } else {
             cache.unshift(processedItem);
@@ -213,6 +246,7 @@ class KubeOwlApp {
             };
         }
         if (type === 'events') return this.processEventInfo(resource);
+
         return resource;
     }
     
@@ -234,7 +268,6 @@ class KubeOwlApp {
         }
     }
 
-    // Retorna uma fatia filtrada do cache
     getFilteredData(cacheKey) {
         if (!this.selectedNamespace) {
             return this.fullDataCache[cacheKey] || [];
