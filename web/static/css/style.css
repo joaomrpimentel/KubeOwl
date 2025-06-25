@@ -158,8 +158,16 @@ tbody tr:hover { background-color: rgba(128, 128, 128, 0.05); }
 .events-container { display: flex; flex-direction: column; gap: 0.75rem; }
 .event-card { padding: 1rem; border-left-width: 4px; }
 .event-header { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--gray-400); margin-bottom: 0.25rem; }
-.event-header b, .event-message b { color: var(--text-color); }
-.event-message { margin: 0; }
+.event-header b { color: var(--text-color); }
+.event-card .event-message { 
+    font-size: 1rem;
+    font-weight: normal;
+    margin: 0;
+}
+.event-card .event-message b {
+    color: var(--text-color);
+    font-weight: 600;
+}
 
 
 /* Responsividade */
@@ -172,4 +180,3 @@ tbody tr:hover { background-color: rgba(128, 128, 128, 0.05); }
     .main-content { padding: 1rem; }
     h2 { font-size: 1.5rem; }
 }
-
