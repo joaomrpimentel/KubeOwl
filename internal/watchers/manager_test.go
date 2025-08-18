@@ -70,13 +70,14 @@ func TestRunWatcher_ErrorHandling(t *testing.T) {
 
 func TestProcessWatcherEvents(t *testing.T) {
 	hub := websocket.NewHub()
-	go hub.Run()
+	// Não executa hub.Run() para garantir que a mensagem permaneça no canal de broadcast.
 
-	eventChan := make(chan watch.Event)
+	eventChan := make(chan watch.Event, 1)
 	go processWatcherEvents(hub, eventChan, "pods")
 
 	pod := &v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "test-pod"}}
-	eventChan <- watch.Event{Type: watch.Added, Object: pod}
+	event := watch.Event{Type: watch.Added, Object: pod}
+	eventChan <- event
 	close(eventChan)
 
 	select {
@@ -84,7 +85,19 @@ func TestProcessWatcherEvents(t *testing.T) {
 		var msg models.WSMessage
 		err := json.Unmarshal(msgBytes, &msg)
 		assert.NoError(t, err)
-		assert.Equal(t, "pods", msg.Type)
+		assert.Equal(t, "pods", msg.Type, "O tipo da mensagem deve ser 'pods'")
+
+		var payloadData struct {
+			Type   watch.EventType `json:"type"`
+			Object json.RawMessage `json:"object"`
+		}
+		payloadBytes, err := json.Marshal(msg.Payload)
+		assert.NoError(t, err)
+		err = json.Unmarshal(payloadBytes, &payloadData)
+
+		assert.NoError(t, err, "A decodificação do payload não deve falhar")
+		assert.Equal(t, event.Type, payloadData.Type, "O tipo do evento no payload deve corresponder")
+
 	case <-time.After(1 * time.Second):
 		t.Fatal("Tempo esgotado esperando a mensagem no canal de broadcast")
 	}

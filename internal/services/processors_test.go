@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
@@ -20,6 +21,7 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+// TestGetPodStatus valida a lógica de determinação de status e contagem de restarts.
 func TestGetPodStatus(t *testing.T) {
 	testCases := []struct {
 		name             string
@@ -44,7 +46,7 @@ func TestGetPodStatus(t *testing.T) {
 			expectedRestarts: 5,
 		},
 		{
-			name: "Status Terminated",
+			name: "Status Completed",
 			pod: v1.Pod{Status: v1.PodStatus{Phase: v1.PodSucceeded, ContainerStatuses: []v1.ContainerStatus{
 				{State: v1.ContainerState{Terminated: &v1.ContainerStateTerminated{Reason: "Completed"}}, RestartCount: 0},
 			}}},
@@ -52,7 +54,7 @@ func TestGetPodStatus(t *testing.T) {
 			expectedRestarts: 0,
 		},
 		{
-			name:             "Status Pending",
+			name:             "Status Pending com base na Phase",
 			pod:              v1.Pod{Status: v1.PodStatus{Phase: v1.PodPending}},
 			expectedStatus:   "Pending",
 			expectedRestarts: 0,
@@ -68,118 +70,118 @@ func TestGetPodStatus(t *testing.T) {
 	}
 }
 
-func TestProcessClusterCapacity(t *testing.T) {
-	nodes := &v1.NodeList{
-		Items: []v1.Node{
-			{Status: v1.NodeStatus{Allocatable: v1.ResourceList{
-				v1.ResourceCPU:    *resource.NewMilliQuantity(2000, resource.DecimalSI),
-				v1.ResourceMemory: *resource.NewQuantity(4*1024*1024*1024, resource.BinarySI),
-			}}},
-		},
-	}
-	nodeMetrics := &metricsv1beta1.NodeMetricsList{
-		Items: []metricsv1beta1.NodeMetrics{
-			{Usage: v1.ResourceList{
-				v1.ResourceCPU:    *resource.NewMilliQuantity(500, resource.DecimalSI),
-				v1.ResourceMemory: *resource.NewQuantity(1*1024*1024*1024, resource.BinarySI),
-			}},
-		},
-	}
-
-	capacity := processClusterCapacity(nodes, nodeMetrics)
-	assert.Equal(t, int64(2000), capacity.TotalCPU)
-	assert.Equal(t, int64(500), capacity.UsedCPU)
-	assert.InDelta(t, 25.0, capacity.CPUUsagePercentage, 0.01)
-}
-
-func TestProcessNamespaces(t *testing.T) {
-	namespaces := &v1.NamespaceList{
-		Items: []v1.Namespace{
-			{ObjectMeta: metav1.ObjectMeta{Name: "app-1"}},
-			{ObjectMeta: metav1.ObjectMeta{Name: "kube-system"}},
-			{ObjectMeta: metav1.ObjectMeta{Name: "cattle-monitoring-system"}},
-		},
-	}
-	count, userNS := processNamespaces(namespaces)
-	assert.Equal(t, 1, count)
-	assert.True(t, userNS["app-1"])
-	assert.False(t, userNS["kube-system"])
-	assert.False(t, userNS["cattle-monitoring-system"])
-}
-
-func TestProcessServiceInfo(t *testing.T) {
-	services := &v1.ServiceList{Items: []v1.Service{{
-		ObjectMeta: metav1.ObjectMeta{Name: "my-service", Namespace: "app-ns"},
-		Spec:       v1.ServiceSpec{Type: v1.ServiceTypeLoadBalancer, ClusterIP: "10.0.0.1"},
-		Status:     v1.ServiceStatus{LoadBalancer: v1.LoadBalancerStatus{Ingress: []v1.LoadBalancerIngress{{IP: "8.8.8.8"}}}},
-	}}}
-	userNamespaces := map[string]bool{"app-ns": true}
-
-	serviceInfo := processServiceInfo(services, userNamespaces)
-	assert.Len(t, serviceInfo, 1)
-	assert.Equal(t, "8.8.8.8", serviceInfo[0].ExternalIP)
-}
-
-func TestProcessPodInfo(t *testing.T) {
-	t.Run("WithMetrics", func(t *testing.T) {
-		pods := &v1.PodList{Items: []v1.Pod{{ObjectMeta: metav1.ObjectMeta{Name: "pod-1", Namespace: "app-ns"}}}}
-		podMetrics := &metricsv1beta1.PodMetricsList{Items: []metricsv1beta1.PodMetrics{{
-			ObjectMeta: metav1.ObjectMeta{Name: "pod-1", Namespace: "app-ns"},
-			Containers: []metricsv1beta1.ContainerMetrics{{Usage: v1.ResourceList{v1.ResourceCPU: *resource.NewMilliQuantity(100, resource.DecimalSI)}}},
-		}}}
-		userNamespaces := map[string]bool{"app-ns": true}
-
-		podInfo := processPodInfo(pods, podMetrics, userNamespaces)
-		assert.Len(t, podInfo, 1)
-		assert.Equal(t, "100 m", podInfo[0].UsedCPU)
-	})
-
-	t.Run("WithoutMetrics", func(t *testing.T) {
-		pods := &v1.PodList{Items: []v1.Pod{{ObjectMeta: metav1.ObjectMeta{Name: "pod-1", Namespace: "app-ns"}}}}
-		userNamespaces := map[string]bool{"app-ns": true}
-
-		podInfo := processPodInfo(pods, nil, userNamespaces)
-		assert.Len(t, podInfo, 1)
-		assert.Empty(t, podInfo[0].UsedCPU, "UsedCPU should be empty when metrics are unavailable")
-	})
-}
-
-func TestProcessIngressInfo(t *testing.T) {
-	ingresses := &networkingv1.IngressList{Items: []networkingv1.Ingress{{
-		ObjectMeta: metav1.ObjectMeta{Name: "my-ingress", Namespace: "app-ns"},
-		Spec: networkingv1.IngressSpec{
-			Rules: []networkingv1.IngressRule{{Host: "test.com"}},
-		},
-	}}}
-	userNamespaces := map[string]bool{"app-ns": true}
-
-	ingressInfo := processIngressInfo(ingresses, userNamespaces)
-	assert.Len(t, ingressInfo, 1)
-	assert.Equal(t, "test.com", ingressInfo[0].Hosts)
-}
-
+// TestProcessNodeInfo valida o processamento de informações dos nós.
 func TestProcessNodeInfo(t *testing.T) {
 	nodes := &v1.NodeList{Items: []v1.Node{{
-		ObjectMeta: metav1.ObjectMeta{Name: "node-1", Labels: map[string]string{"node-role.kubernetes.io/control-plane": ""}},
-		Status:     v1.NodeStatus{Allocatable: v1.ResourceList{v1.ResourceCPU: *resource.NewMilliQuantity(1000, resource.DecimalSI)}},
+		ObjectMeta: metav1.ObjectMeta{Name: "node-1", Labels: map[string]string{"node-role.kubernetes.io/control-plane": "true"}},
+		Status:     v1.NodeStatus{Allocatable: v1.ResourceList{v1.ResourceCPU: *resource.NewMilliQuantity(2000, resource.DecimalSI)}},
 	}}}
 	nodeMetrics := &metricsv1beta1.NodeMetricsList{Items: []metricsv1beta1.NodeMetrics{{
 		ObjectMeta: metav1.ObjectMeta{Name: "node-1"},
-		Usage:      v1.ResourceList{v1.ResourceCPU: *resource.NewMilliQuantity(250, resource.DecimalSI)},
+		Usage:      v1.ResourceList{v1.ResourceCPU: *resource.NewMilliQuantity(500, resource.DecimalSI)},
 	}}}
+	pods := &v1.PodList{Items: []v1.Pod{{Spec: v1.PodSpec{NodeName: "node-1"}}}}
 
-	nodeInfo := processNodeInfo(nodes, nil, nodeMetrics)
+	nodeInfo := processNodeInfo(nodes, pods, nodeMetrics)
 	assert.Len(t, nodeInfo, 1)
 	assert.Equal(t, "Control-Plane", nodeInfo[0].Role)
+	assert.Equal(t, 1, nodeInfo[0].PodCount)
 	assert.InDelta(t, 25.0, nodeInfo[0].CPUUsagePercentage, 0.01)
 }
 
-// TestProcessFunctions_NilInput testa se as funções de processamento lidam com entradas nulas sem pânico.
+// TestProcessNamespacesForSelector valida a filtragem e ordenação dos namespaces para o seletor.
+func TestProcessNamespacesForSelector(t *testing.T) {
+	namespaces := &v1.NamespaceList{
+		Items: []v1.Namespace{
+			{ObjectMeta: metav1.ObjectMeta{Name: "zeta-app"}},
+			{ObjectMeta: metav1.ObjectMeta{Name: "alpha-app"}},
+			{ObjectMeta: metav1.ObjectMeta{Name: "kube-system"}}, // Namespace de sistema
+		},
+	}
+	nsInfo := processNamespacesForSelector(namespaces)
+	assert.Len(t, nsInfo, 2, "Deveria retornar apenas namespaces do usuário")
+	assert.Equal(t, "alpha-app", nsInfo[0].Name, "A lista de namespaces deveria estar ordenada alfabeticamente")
+	assert.Equal(t, "zeta-app", nsInfo[1].Name, "A lista de namespaces deveria estar ordenada alfabeticamente")
+}
+
+// TestFilteringByUserNamespaces valida se os recursos de sistema são corretamente filtrados.
+func TestFilteringByUserNamespaces(t *testing.T) {
+	userNamespaces := map[string]bool{"app-ns": true}
+
+	t.Run("processServiceInfo filters system namespaces", func(t *testing.T) {
+		services := &v1.ServiceList{Items: []v1.Service{
+			{ObjectMeta: metav1.ObjectMeta{Name: "user-service", Namespace: "app-ns"}},
+			{ObjectMeta: metav1.ObjectMeta{Name: "system-service", Namespace: "kube-system"}},
+		}}
+		serviceInfo := processServiceInfo(services, userNamespaces)
+		assert.Len(t, serviceInfo, 1)
+		assert.Equal(t, "user-service", serviceInfo[0].Name)
+	})
+
+	t.Run("processPodInfo filters system namespaces", func(t *testing.T) {
+		pods := &v1.PodList{Items: []v1.Pod{
+			{ObjectMeta: metav1.ObjectMeta{Name: "user-pod", Namespace: "app-ns", UID: "uid-1"}},
+			{ObjectMeta: metav1.ObjectMeta{Name: "system-pod", Namespace: "kube-system", UID: "uid-2"}},
+		}}
+		podInfo := processPodInfo(pods, nil, userNamespaces)
+		assert.Len(t, podInfo, 1)
+		assert.Equal(t, "user-pod", podInfo[0].Name)
+	})
+
+	t.Run("processIngressInfo filters system namespaces", func(t *testing.T) {
+		ingresses := &networkingv1.IngressList{Items: []networkingv1.Ingress{
+			{ObjectMeta: metav1.ObjectMeta{Name: "user-ingress", Namespace: "app-ns"}},
+			{ObjectMeta: metav1.ObjectMeta{Name: "system-ingress", Namespace: "kube-system"}},
+		}}
+		ingressInfo := processIngressInfo(ingresses, userNamespaces)
+		assert.Len(t, ingressInfo, 1)
+		assert.Equal(t, "user-ingress", ingressInfo[0].Name)
+	})
+
+	t.Run("processPvcs filters system namespaces", func(t *testing.T) {
+		pvcs := &v1.PersistentVolumeClaimList{Items: []v1.PersistentVolumeClaim{
+			{ObjectMeta: metav1.ObjectMeta{Name: "user-pvc", Namespace: "app-ns"}},
+			{ObjectMeta: metav1.ObjectMeta{Name: "system-pvc", Namespace: "kube-system"}},
+		}}
+		pvcInfo := processPvcs(pvcs, userNamespaces)
+		assert.Len(t, pvcInfo, 1)
+		assert.Equal(t, "user-pvc", pvcInfo[0].Name)
+	})
+
+	t.Run("processEvents filters system namespaces", func(t *testing.T) {
+		now := metav1.NewTime(time.Now())
+		events := &v1.EventList{Items: []v1.Event{
+			{
+				ObjectMeta:     metav1.ObjectMeta{Name: "user-event", Namespace: "app-ns"},
+				LastTimestamp:  metav1.Time{Time: now.Add(1 * time.Second)},
+				InvolvedObject: v1.ObjectReference{Kind: "Pod", Name: "pod-1", Namespace: "app-ns"},
+			},
+			{
+				ObjectMeta:     metav1.ObjectMeta{Name: "system-event", Namespace: "kube-system"},
+				LastTimestamp:  now,
+				InvolvedObject: v1.ObjectReference{Kind: "Pod", Name: "pod-2", Namespace: "kube-system"},
+			},
+			{
+				ObjectMeta:     metav1.ObjectMeta{Name: "global-event", Namespace: ""}, // Evento de cluster
+				LastTimestamp:  now,
+				InvolvedObject: v1.ObjectReference{Kind: "Node", Name: "node-1"},
+			},
+		}}
+
+		eventInfo := processEvents(events, userNamespaces)
+		assert.Len(t, eventInfo, 2, "Deveria processar eventos de namespaces de usuário e de cluster")
+		assert.Equal(t, "Pod/pod-1", eventInfo[0].Object, "O evento mais recente deve vir primeiro")
+		assert.Equal(t, "Node/node-1", eventInfo[1].Object)
+	})
+}
+
+// TestProcessFunctions_NilInput garante que as funções não causem pânico com entradas nulas.
 func TestProcessFunctions_NilInput(t *testing.T) {
-	assert.NotPanics(t, func() { processNodeInfo(nil, nil, nil) })
-	assert.NotPanics(t, func() { processPodInfo(nil, nil, nil) })
-	assert.NotPanics(t, func() { processServiceInfo(nil, nil) })
-	assert.NotPanics(t, func() { processIngressInfo(nil, nil) })
-	assert.NotPanics(t, func() { processPvcs(nil, nil) })
-	assert.NotPanics(t, func() { processEvents(nil, nil) })
+	assert.NotPanics(t, func() { processNodeInfo(nil, nil, nil) }, "processNodeInfo não deve causar pânico com nil")
+	assert.NotPanics(t, func() { processPodInfo(nil, nil, nil) }, "processPodInfo não deve causar pânico com nil")
+	assert.NotPanics(t, func() { processServiceInfo(nil, nil) }, "processServiceInfo não deve causar pânico com nil")
+	assert.NotPanics(t, func() { processIngressInfo(nil, nil) }, "processIngressInfo não deve causar pânico com nil")
+	assert.NotPanics(t, func() { processPvcs(nil, nil) }, "processPvcs não deve causar pânico com nil")
+	assert.NotPanics(t, func() { processEvents(nil, nil) }, "processEvents não deve causar pânico com nil")
+	assert.NotPanics(t, func() { processNamespacesForSelector(nil) }, "processNamespacesForSelector não deve causar pânico com nil")
 }

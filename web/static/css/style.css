@@ -77,7 +77,58 @@ html:not(.dark) ::-webkit-scrollbar-thumb { background-color: #CBD5E0; border-ra
 .main-content { flex: 1; padding: 2rem; overflow-y: auto; }
 .main-section { animation: fadeIn 0.5s ease-in-out; }
 .main-section.hidden { display: none; }
-h2 { font-size: 1.875rem; font-weight: bold; margin: 0 0 2rem 0; }
+h2 { font-size: 1.875rem; font-weight: bold; margin: 0; }
+
+/* Header do Conteúdo Principal */
+.main-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.namespace-selector-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    position: relative;
+}
+
+.namespace-selector-container label {
+    font-weight: 500;
+    color: var(--gray-500);
+}
+
+#namespace-selector {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    padding: 0.5rem 2.5rem 0.5rem 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--border-color);
+    background-color: var(--card-bg);
+    color: var(--text-color);
+    min-width: 220px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+#namespace-selector:hover {
+    border-color: var(--blue-500);
+}
+
+.namespace-selector-container::after {
+    content: '\f078'; /* Ícone de seta para baixo do Font Awesome */
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    color: var(--gray-400);
+}
 
 /* Sidebar */
 .sidebar {
@@ -173,6 +224,7 @@ tbody tr:hover { background-color: rgba(128, 128, 128, 0.05); }
 /* Responsividade */
 @media (max-width: 1024px) {
     .grid-cols-3, .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .main-header { flex-direction: column; align-items: flex-start; gap: 1rem; }
 }
 @media (max-width: 768px) {
     .grid-cols-3, .grid-cols-2 { grid-template-columns: 1fr; }
